@@ -46,3 +46,10 @@ Network Trash Folder
 Temporary Items
 .apdisk
 *.filters
+*.tlog
+*.obj
+*.enc
+*.log
+*.idb
+*.vcxproj
+*.pdb
