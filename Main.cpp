@@ -1,10 +1,11 @@
 #include "Mesh.h"
+#include "Controller.h"
 int main() {
-	Mesh mesh = Mesh("MeshIn11.txt");
+	
 	//part 1
-	mesh.loadData();
-	//part 2
-	mesh.initTriangle();
-	//part 3
+	Mesh mesh = Mesh("meshin1.txt");
+	Controller c;
+	c.meshes = mesh.divide();
+
 	mesh.process();
 }

@@ -6,10 +6,11 @@
 #include <iomanip>
 #include <algorithm>
 #include <utility>
+#include <sstream>
 using namespace std;
 Mesh::Mesh(string filename) {
 	this->filename = filename;
-
+	this->loadData();
 }
 void Mesh::loadData() {
 	//Part 1:
@@ -170,6 +171,7 @@ std::ostream& operator<< (std::ostream& stream, const vector<pair<int, int>>& st
 	return stream;
 }
 void Mesh::process() {
+	this->initTriangle();
 	for (int pointLabel = 1; pointLabel <= this->numPoints()-3; pointLabel++) {
 		cout << "insert point " << pointLabel << endl;
 		Coord pointN = this->points.at(pointLabel -1);
@@ -203,13 +205,17 @@ void Mesh::process() {
 			}
 
 		};
+		//part 11
+		if(pointLabel%10 == 0 || pointLabel == this->numPoints() - 3) this->writeMesh(pointLabel);
 	}
-	//part 11
-	this->writeMesh();
+	
 }
-void Mesh::writeMesh() {
+void Mesh::writeMesh(int iter) {
 	//part 1
-	ofstream pltFile("2DMeshCPP.plt", ios::out);
+	std::stringstream plotname;
+	plotname << "plots/" << std::to_string(iter) << ".plt";
+	std::string filename = plotname.str();
+	ofstream pltFile(filename, ios::out);
 	if (!pltFile) {
 		cout << "File not opened" << endl;
 		exit(1);

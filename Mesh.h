@@ -16,14 +16,11 @@ private:
 	std::vector<Coord> points;
 	std::vector<pair<int, int>> stack;
 	int getTriangleContainsPoint(Coord n);
-
-public:
-	friend std::ostream& operator<< (std::ostream& stream, const vector<pair<int, int>>& stack);
 	int* numCurveEdges(); //number of edges belong to each curve
 	int numBoundCurves(); //number of boundary curves
 	int numPoints(); //number of points
 	int numRunningCells;
-	Mesh(string filename);
+	
 	Coord& getPointByLabel(int label);
 	Triangle* getCellByPos(int pos);
 	void setCellByPos(int pos, Triangle* T);
@@ -34,10 +31,14 @@ public:
 	void swapEdges(int firstCellLabel, int secondCellLabel);
 	int getNonCommonPointLabel(int firstCellLabel, int secondCellLabel);
 	void makeTriangle(int cellIndex, int indexPointInCell);
-	void process();
-	void writeMesh();
+	void writeMesh(int iter);
 	Coord* getCoords(Triangle* tri);
 
+public:
+	friend std::ostream& operator<< (std::ostream& stream, const vector<pair<int, int>>& stack);
+	Mesh(string filename);
+	void process();
+	vector<Mesh> divide();
 };
 
 #endif
