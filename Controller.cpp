@@ -124,12 +124,6 @@ void connectLeaves(vector<int> leaves, Mesh* devidedMesh) {
 	int n = leaves.size(), k = 2; // 2 combination of n item
 	connectVertices(coords, devidedMesh, leaves);
 }
-void makeEdges(vector<Coord> convexHull, Mesh* devidedMesh) {
-	for (int i = 0; i < convexHull.size()-1; i++) {
-		edge e(convexHull[i].ptag, convexHull[i + 1].ptag);
-		devidedMesh->boundaryCurves[0].addEdge(e);
-	}
-}
 void connectPoints(Mesh* devidedMesh, Mesh mainMesh) {
 	Curve newC;
 	for each (Curve c in mainMesh.boundaryCurves)
@@ -147,13 +141,19 @@ void connectPoints(Mesh* devidedMesh, Mesh mainMesh) {
 		}
 	}
 	devidedMesh->boundaryCurves.push_back(newC);
-	//close curve
-	vector<int> leaves = newC.findLeafVertex();
-	vector<Coord> convexhull = convexHull(devidedMesh->getPointsByLabel(leaves));
-	makeEdges(convexhull, devidedMesh);
-	//connectLeaves(leaves, devidedMesh);
 }
-
+void closeCurve(Mesh* devidedMesh) {
+	vector<int> leaves = devidedMesh->boundaryCurves[0].findLeafVertex();
+	vector<Coord> convexhull = convexHull(devidedMesh->getPointsByLabel(leaves));
+	for (int i = 0; i < convexhull.size() - 1; i++) {
+		edge e(convexhull[i].ptag, convexhull[i + 1].ptag);
+		devidedMesh->boundaryCurves[0].addEdge(e);
+	}
+}
+void matchParts(Mesh* m1, Mesh* m2) {
+	vector<int> leaves = m1->boundaryCurves[0].findLeafVertex();
+	m2->addPoints(m1->getPointsByLabel(leaves));
+}
 void Controller::separation() {
 	Coord median;
 	size_t size = this->mainMesh.points.size();
@@ -163,16 +163,24 @@ void Controller::separation() {
 	//median = points[size / 2];
 	std::size_t const half_size = this->mainMesh.points.size() / 2;
 	std::vector<Coord> firstHalf(this->mainMesh.points.begin(), this->mainMesh.points.begin() + half_size);
-	std::vector<Coord> secondHalf(this->mainMesh.points.begin() + half_size-1, this->mainMesh.points.end());
+	std::vector<Coord> secondHalf(this->mainMesh.points.begin() + half_size, this->mainMesh.points.end());
+	//create mesh for first part
 	Mesh m1;
 	m1.setPoints(firstHalf);
 	this->meshes.push_back(m1);
 	connectPoints(&m1, this->mainMesh);
-	m1.writePltInput("MeshInput-1.plt");
+	//create mesh for second part
 	Mesh m2;
 	m2.setPoints(secondHalf);
+	//match parts together
+	matchParts(&m1, &m2);
 	connectPoints(&m2,this->mainMesh);
 	this->meshes.push_back(m2);
+	//make closure
+	closeCurve(&m1);
+	closeCurve(&m2);
+	//write seperated shapes
+	m1.writePltInput("MeshInput-1.plt");
 	m2.writePltInput("MeshInput-2.plt");
 }
 
@@ -252,6 +260,12 @@ void separatePoints(vector<Coord> points, Coord median) {
 	{
 	}
 	//vector<Coord> points
+}
+void Controller::solveMeshes() {
+	for each (Mesh m in this->meshes)
+	{
+		m.process();
+	}
 }
 vector<Coord> getProjections(vector<Coord> points, Coord q) {
 	vector<Coord> pp;

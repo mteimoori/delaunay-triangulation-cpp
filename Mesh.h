@@ -16,7 +16,7 @@ private:
 	int numBoundCurves(); //number of boundary curves
 	int numPoints(); //number of points
 	int numRunningCells;
-	
+	int id;
 	Triangle* getCellByPos(int pos);
 	void setCellByPos(int pos, Triangle* T);
 	int numCells();  //number of cells(triangle elements)
@@ -27,6 +27,7 @@ private:
 	void makeTriangle(int cellIndex, int indexPointInCell);
 	Coord* getCoords(Triangle* tri);
 public:
+	static int sId;
 	std::vector<Coord> points;
 	std::vector<Triangle*> cells;
 	std::vector<Curve> boundaryCurves;
@@ -37,7 +38,9 @@ public:
 	vector<Coord> getPointsByLabel(vector<int> labels);
 	void writePltInput(string filename = "MeshIn.plt");
 	void setPoints(vector<Coord> points);
+	void addPoints(vector<Coord> points);
 	vector<Mesh> divide();
+	Mesh();
 };
 
 #endif

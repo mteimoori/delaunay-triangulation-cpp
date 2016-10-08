@@ -6,6 +6,9 @@
 #include <iomanip>
 #include <algorithm>
 #include <sstream>
+Mesh::Mesh():id(Mesh::sId++){
+}
+int Mesh::sId = 0;
 void Mesh::initTriangle() {
 	//part 1: find Xmax,Xmin,Ymax,Ymin
 	
@@ -143,7 +146,7 @@ void Mesh::writePltInput(string filename) {
 void Mesh::writeMeshOutput(int iter) {
 	//part 1
 	std::stringstream plotname;
-	plotname << "plots/" << std::to_string(iter) << ".plt";
+	plotname << "plots/" << this->id <<"_"<< std::to_string(iter) << ".plt";
 	std::string filename = plotname.str();
 	ofstream pltFile(filename, ios::out);
 	if (!pltFile) {
@@ -478,4 +481,7 @@ Coord* Mesh::getCoords(Triangle* tri) {
 }
 void Mesh::setPoints(vector<Coord> points) {
 	this->points = points;
+}
+void Mesh::addPoints(vector<Coord> points) {
+	this->points.insert(this->points.end(), points.begin(), points.end());
 }

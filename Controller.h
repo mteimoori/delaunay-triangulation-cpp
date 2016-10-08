@@ -11,6 +11,7 @@ public:
 	string filename;
 	void loadData();
 	void separation();
+	void solveMeshes();
 };
 
 #endif
