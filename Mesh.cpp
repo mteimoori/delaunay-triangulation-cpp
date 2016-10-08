@@ -5,114 +5,7 @@
 #include <limits>
 #include <iomanip>
 #include <algorithm>
-#include <utility>
 #include <sstream>
-using namespace std;
-Mesh::Mesh(string filename) {
-	this->filename = filename;
-	this->loadData();
-}
-void Mesh::loadData() {
-	//Part 1:
-	ifstream in(this->filename, ios::in);
-	if (!in)
-	{
-		cout << "File not opened" << endl;
-		exit(1);
-	}
-	//Part 2:
-	int numPoints = 0;
-	in >> numPoints;
-	in.ignore(256, '\n');
-	cout << "number of points: " << numPoints << endl;
-	//Part 3:
-	int numCells = 0;
-	in >> numCells;
-	in.ignore(256, '\n');
-	cout << "number of cells: " << numCells << endl;
-	//Part 4:
-	int numBoundCurves = 0;
-	in >> numBoundCurves;
-	in.ignore(256, '\n');
-	cout << "number of boundary curves: " << numBoundCurves << endl;
-	//Part 5:
-	int* numCurveEdge = new int[numBoundCurves];
-	for (int i = 0; i < numBoundCurves; i++) {
-		in >> numCurveEdge[i];
-		in.ignore(256, '\n');
-		cout << "number of edges belong to curve #" <<i+1<<" : "<< numCurveEdge[i] << endl;
-	}
-	//Part 6:
-	//read start and end indeces of points for each edge
-	for (int i = 0; i < numBoundCurves; i++) {
-		Curve c;
-		for (int j = 0; j < numCurveEdge[i]; j++) {
-			int startIndex, endIndex;
-			in >> startIndex >> endIndex;
-			struct edge e = edge(startIndex, endIndex);
-			c.addEdge(e);
-		}
-		this->boundaryCurves.push_back(c);
-	}
-	
-	//Part 7:
-	for (int i = 0; i < numCells; i++) {
-		int point1, point2, point3, neighbour1, neighbour2, neighbour3;
-		in >> point1 >> point2 >> point3;
-		in.ignore(256, '\n');
-		in >> neighbour1 >> neighbour2 >> neighbour3;
-		in.ignore(256, '\n');
-		Triangle* T = new Triangle(point1, point2, point3, neighbour1, neighbour2, neighbour3);
-		this->cells.push_back(T);
-	}
-	
-	//Part 8:
-	for (int i = 0; i < numPoints; i++) {
-		double x, y;
-		in >> x >> y;
-		Coord c(x, y);
-		in.ignore(256, '\n');
-		this->points.push_back(c);
-	}
-	
-	//Part 9:
-	ofstream out("MeshIn.plt", ios::out);
-	if (!out) {
-		cout << "File not opened" << endl;
-		exit(1);
-	}
-	if (numCells != 0) {
-		out << "Variables=\"X\",\"Y\""<<endl;
-		out << "Zone T=\"Grid\""<< endl;
-		out << " N=  " << numPoints << ",E= " << numCells << ",F=FEPOINT ET=QUADRILATERAL" << endl;
-		for each (Coord point in this->points)
-		{
-			out << std::setprecision(std::numeric_limits<long double>::digits10) << point.x << '\t'<< point.y << endl;
-		}
-		for each (Triangle* tri in this->cells)
-		{
-			out << tri->getPointLabel(0) << '\t' << tri->getPointLabel(1)<< '\t' << tri->getPointLabel(2)<< '\t' << tri->getPointLabel(2) <<endl;
-		}
-	}
-	
-	//part 10:
-	for (int i = 0; i < numBoundCurves; i++) {
-		out << "Variables=\"X\",\"Y\"" << endl;
-		out << "Zone N=" << numPoints << " E=" << numCurveEdge[i] << ",Datapacking=Point, Zonetype=Fetriangle" << endl;
-		for each (Coord point in this->points)
-		{
-			out << std::setprecision(std::numeric_limits<long double>::digits10) << point.x << '\t' << point.y << endl;
-		}
-		for (int j = 0; j < this->boundaryCurves.at(i).getNumEdges(); j++)
-		{
-			out << this->boundaryCurves.at(i).getEdge(j).startPointIndex << '\t' << this->boundaryCurves.at(i).getEdge(j).endPointIndex << '\t' << this->boundaryCurves.at(i).getEdge(j).endPointIndex << endl;
-		}
-	}
-	
-	out.close();
-	exit;
-	
-}
 void Mesh::initTriangle() {
 	//part 1: find Xmax,Xmin,Ymax,Ymin
 	
@@ -147,9 +40,9 @@ void Mesh::initTriangle() {
 		radius = 0.5*std::max(abs(Xmax - Xmin), abs(Ymax - Ymin));
 	
 	//part 3: make big triangle
-	Coord p1(Xmid, Ymid + 2 * radius),
-		  p2(Xmid - 4 * radius, Ymid - 2 * radius),
-		  p3(Xmid + 4 * radius, Ymid - 2 * radius);
+	Coord p1(Xmid, Ymid + 2 * radius, this->points.size()+1),
+		  p2(Xmid - 4 * radius, Ymid - 2 * radius, this->points.size() + 2),
+		  p3(Xmid + 4 * radius, Ymid - 2 * radius, this->points.size() + 3);
 	this->points.push_back(p1);
 	this->points.push_back(p2);
 	this->points.push_back(p3);
@@ -206,11 +99,48 @@ void Mesh::process() {
 
 		};
 		//part 11
-		if(pointLabel%10 == 0 || pointLabel == this->numPoints() - 3) this->writeMesh(pointLabel);
+		if(pointLabel%10 == 0 || pointLabel == this->numPoints() - 3) this->writeMeshOutput(pointLabel);
 	}
 	
 }
-void Mesh::writeMesh(int iter) {
+void Mesh::writePltInput(string filename) {
+	ofstream out(filename, ios::out);
+	if (!out) {
+		cout << "File not opened" << endl;
+		exit(1);
+	}
+	if (this->cells.size() != 0) {
+		out << "Variables=\"X\",\"Y\"" << endl;
+		out << "Zone T=\"Grid\"" << endl;
+		out << " N=  " << this->points.size() << ",E= " << this->cells.size() << ",F=FEPOINT ET=QUADRILATERAL" << endl;
+		for each (Coord point in this->points)
+		{
+			out << std::setprecision(std::numeric_limits<long double>::digits10) << point.x << '\t' << point.y << endl;
+		}
+		for each (Triangle* tri in this->cells)
+		{
+			out << tri->getPointLabel(0) << '\t' << tri->getPointLabel(1) << '\t' << tri->getPointLabel(2) << '\t' << tri->getPointLabel(2) << endl;
+		}
+	}
+
+	//part 10:
+	for (int i = 0; i < this->boundaryCurves.size(); i++) {
+		out << "Variables=\"X\",\"Y\"" << endl;
+		out << "Zone N=" << this->points.size() << " E=" << this->boundaryCurves.at(i).getNumEdges() << ",Datapacking=Point, Zonetype=Fetriangle" << endl;
+		for each (Coord point in this->points)
+		{
+			out << std::setprecision(std::numeric_limits<long double>::digits10) << point.x << '\t' << point.y << endl;
+		}
+		for (int j = 0; j < this->boundaryCurves.at(i).getNumEdges(); j++)
+		{
+			out << this->boundaryCurves.at(i).getEdge(j).startPointTag << '\t' << this->boundaryCurves.at(i).getEdge(j).endPointTag << '\t' << this->boundaryCurves.at(i).getEdge(j).endPointTag << endl;
+		}
+	}
+
+	out.close();
+	exit;
+}
+void Mesh::writeMeshOutput(int iter) {
 	//part 1
 	std::stringstream plotname;
 	plotname << "plots/" << std::to_string(iter) << ".plt";
@@ -238,7 +168,7 @@ void Mesh::writeMesh(int iter) {
 	//part 6
 	for (int i = 0; i < this->boundaryCurves.size(); i++) {
 		for (int j = 0; j < this->boundaryCurves.at(i).getNumEdges(); j++) {
-			meshFile << this->boundaryCurves.at(i).getEdge(j).startPointIndex <<" "<< this->boundaryCurves.at(i).getEdge(j).endPointIndex<< endl;
+			meshFile << this->boundaryCurves.at(i).getEdge(j).startPointTag <<" "<< this->boundaryCurves.at(i).getEdge(j).endPointTag<< endl;
 		}
 	}
 	//Part 7
@@ -275,7 +205,7 @@ void Mesh::writeMesh(int iter) {
 		}
 		for (int j = 0; j < this->boundaryCurves.at(i).getNumEdges(); j++)
 		{
-			pltFile << this->boundaryCurves.at(i).getEdge(j).startPointIndex << '\t' << this->boundaryCurves.at(i).getEdge(j).endPointIndex << '\t' << this->boundaryCurves.at(i).getEdge(j).endPointIndex << endl;
+			pltFile << this->boundaryCurves.at(i).getEdge(j).startPointTag << '\t' << this->boundaryCurves.at(i).getEdge(j).endPointTag << '\t' << this->boundaryCurves.at(i).getEdge(j).endPointTag << endl;
 		}
 	}
 	pltFile.close();
@@ -309,6 +239,7 @@ bool Mesh::isDelaunay(int firstCellLabel, int secondCellLabel) {
 	if (det <= 0.0) return true;
 	return false;
 }
+
 void Mesh::swapEdges(int firstCellLabel, int secondCellLabel) {
 	//part 1
 	Triangle* firstCell = this->cells[firstCellLabel - 1];
@@ -464,6 +395,15 @@ void Mesh::makeTriangle(int cellIndexContainPoint, int pointLabelInCell) {
 Coord& Mesh::getPointByLabel(int label) {
 	return this->points.at(label - 1);
 }
+vector<Coord> Mesh::getPointsByLabel(vector<int> labels) {
+	vector<Coord> points;
+	for each (int label in labels)
+	{
+		//find closest leaf to current one and connect them
+		points.push_back(this->getPointByLabel(label));
+	}
+	return points;
+}
 Triangle* Mesh::getCellByPos(int pos) {
 	if (pos < this->cells.size()) {
 		return this->cells[pos];
@@ -535,4 +475,7 @@ Coord* Mesh::getCoords(Triangle* tri) {
 	points[1] = this->getPointByLabel(tri->getPointLabel(1));
 	points[2] = this->getPointByLabel(tri->getPointLabel(2));
 	return points;
+}
+void Mesh::setPoints(vector<Coord> points) {
+	this->points = points;
 }

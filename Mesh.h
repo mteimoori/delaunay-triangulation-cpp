@@ -9,11 +9,7 @@
 using namespace std;
 class Mesh {
 private:
-	std::vector<Curve> boundaryCurves;
-	string filename;
-	std::vector<Triangle*> cells;
 	//vector<pair<int, int>> indexOfCornerPoints; 
-	std::vector<Coord> points;
 	std::vector<pair<int, int>> stack;
 	int getTriangleContainsPoint(Coord n);
 	int* numCurveEdges(); //number of edges belong to each curve
@@ -21,23 +17,26 @@ private:
 	int numPoints(); //number of points
 	int numRunningCells;
 	
-	Coord& getPointByLabel(int label);
 	Triangle* getCellByPos(int pos);
 	void setCellByPos(int pos, Triangle* T);
 	int numCells();  //number of cells(triangle elements)
-	void loadData();
 	void initTriangle();
 	bool isDelaunay(int firstCellLabel, int secondCellLabel);
 	void swapEdges(int firstCellLabel, int secondCellLabel);
 	int getNonCommonPointLabel(int firstCellLabel, int secondCellLabel);
 	void makeTriangle(int cellIndex, int indexPointInCell);
-	void writeMesh(int iter);
 	Coord* getCoords(Triangle* tri);
-
 public:
+	std::vector<Coord> points;
+	std::vector<Triangle*> cells;
+	std::vector<Curve> boundaryCurves;
 	friend std::ostream& operator<< (std::ostream& stream, const vector<pair<int, int>>& stack);
-	Mesh(string filename);
 	void process();
+	Coord& getPointByLabel(int label);
+	void writeMeshOutput(int iter);
+	vector<Coord> getPointsByLabel(vector<int> labels);
+	void writePltInput(string filename = "MeshIn.plt");
+	void setPoints(vector<Coord> points);
 	vector<Mesh> divide();
 };
 

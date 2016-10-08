@@ -5,7 +5,12 @@
 using namespace std;
 class Controller {
 public:
+	Mesh mainMesh;
 	vector<Mesh> meshes;
+	Controller(string filename);
+	string filename;
+	void loadData();
+	void separation();
 };
 
 #endif
