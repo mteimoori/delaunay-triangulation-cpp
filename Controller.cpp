@@ -78,16 +78,16 @@ vector<Coord> lowerConvexHull(vector<int> leaves, Mesh* devidedMesh) {
 	}
 	return LUpper;
 }
-vector<edge> comb(vector<int> num)
+vector<edge*> comb(vector<int> num)
 {
-	vector<edge> A;
+	vector<edge*> A;
 	for(int i=0;i<num.size();++i)
 	{
 		for(int j = i;j<num.size();++j)
 		{
 			if (i != j)
 			{
-				edge e(num[i], num[j]);
+				edge* e = new edge(num[i], num[j]);
 				A.push_back(e);
 			}
 		}
@@ -96,21 +96,21 @@ vector<edge> comb(vector<int> num)
 }
 void connectVertices(map<int, Coord> coords, Mesh* devidedMesh, vector<int> &leaves) {
 	
-	vector<edge> combinations = comb(leaves);
+	vector<edge*> combinations = comb(leaves);
 	
 	while (leaves.size()>0) {
 		vector<double> distances;
 		for each (auto pair in combinations)
 		{
-			distances.push_back(sqrt(pow(coords[pair.startPointTag].x - coords[pair.endPointTag].x, 2) + pow(coords[pair.startPointTag].y - coords[pair.endPointTag].y, 2)));
+			distances.push_back(sqrt(pow(coords[pair->startPointTag].x - coords[pair->endPointTag].x, 2) + pow(coords[pair->startPointTag].y - coords[pair->endPointTag].y, 2)));
 		}
 		auto minIt = min_element(distances.begin(), distances.end()) - distances.begin();
-		edge toConnect = combinations.at(minIt);
+		edge* toConnect = combinations.at(minIt);
 		//add edge to boundary curve
 		devidedMesh->boundaryCurves.at(0).addEdge(toConnect);
 		//remove connected one from leaves and make new combination set
-		leaves.erase(std::remove(leaves.begin(), leaves.end(), toConnect.startPointTag), leaves.end());
-		leaves.erase(std::remove(leaves.begin(), leaves.end(), toConnect.endPointTag), leaves.end());
+		leaves.erase(std::remove(leaves.begin(), leaves.end(), toConnect->startPointTag), leaves.end());
+		leaves.erase(std::remove(leaves.begin(), leaves.end(), toConnect->endPointTag), leaves.end());
 		combinations = comb(leaves);
 	}
 }
@@ -129,12 +129,12 @@ void connectPoints(Mesh* devidedMesh, Mesh mainMesh) {
 	for each (Curve c in mainMesh.boundaryCurves)
 	{
 		//connect old edges for current points
-		for each (edge e in c.getEdges())
+		for each (edge* e in c.getEdges())
 		{
-			unsigned int newTagStart = findPoint(devidedMesh, e.startPointTag);
-			unsigned int newTagEnd = findPoint(devidedMesh, e.endPointTag);
+			unsigned int newTagStart = findPoint(devidedMesh, e->startPointTag);
+			unsigned int newTagEnd = findPoint(devidedMesh, e->endPointTag);
 			if (newTagStart && newTagEnd) { //if they are connected in main mesh
-				edge newEdge = { newTagStart, newTagEnd };
+				edge* newEdge = new edge(newTagStart, newTagEnd);
 				newC.addEdge(newEdge);
 			}
 				
@@ -146,7 +146,7 @@ void closeCurve(Mesh* devidedMesh) {
 	vector<int> leaves = devidedMesh->boundaryCurves[0].findLeafVertex();
 	vector<Coord> convexhull = convexHull(devidedMesh->getPointsByLabel(leaves));
 	for (int i = 0; i < convexhull.size() - 1; i++) {
-		edge e(convexhull[i].ptag, convexhull[i + 1].ptag);
+		edge* e = new edge(convexhull[i].ptag, convexhull[i + 1].ptag);
 		devidedMesh->boundaryCurves[0].addEdge(e);
 	}
 }
@@ -165,23 +165,24 @@ void Controller::separation() {
 	std::vector<Coord> firstHalf(this->mainMesh.points.begin(), this->mainMesh.points.begin() + half_size);
 	std::vector<Coord> secondHalf(this->mainMesh.points.begin() + half_size, this->mainMesh.points.end());
 	//create mesh for first part
-	Mesh m1;
-	m1.setPoints(firstHalf);
-	this->meshes.push_back(m1);
-	connectPoints(&m1, this->mainMesh);
+	Mesh* m1 = new Mesh;
+	m1->setPoints(firstHalf);
+	connectPoints(m1, this->mainMesh);
 	//create mesh for second part
-	Mesh m2;
-	m2.setPoints(secondHalf);
+	Mesh* m2 = new Mesh;
+	m2->setPoints(secondHalf);
 	//match parts together
-	matchParts(&m1, &m2);
-	connectPoints(&m2,this->mainMesh);
-	this->meshes.push_back(m2);
+	matchParts(m1, m2);
+	connectPoints(m2,this->mainMesh);
 	//make closure
-	closeCurve(&m1);
-	closeCurve(&m2);
+	closeCurve(m1);
+	closeCurve(m2);
+	//add sub peoblems
+	this->meshes.push_back(m1);
+	this->meshes.push_back(m2);
 	//write seperated shapes
-	m1.writePltInput("MeshInput-1.plt");
-	m2.writePltInput("MeshInput-2.plt");
+	m1->writePltInput("MeshInput-1.plt");
+	m2->writePltInput("MeshInput-2.plt");
 }
 
 void Controller::loadData() {
@@ -189,30 +190,30 @@ void Controller::loadData() {
 	ifstream in(this->filename, ios::in);
 	if (!in)
 	{
-		cout << "File not opened" << endl;
+		std::cout << "File not opened" << endl;
 		exit(1);
 	}
 	//Part 2:
 	int numPoints = 0;
 	in >> numPoints;
 	in.ignore(256, '\n');
-	cout << "number of points: " << numPoints << endl;
+	std::cout << "number of points: " << numPoints << endl;
 	//Part 3:
 	int numCells = 0;
 	in >> numCells;
 	in.ignore(256, '\n');
-	cout << "number of cells: " << numCells << endl;
+	std::cout << "number of cells: " << numCells << endl;
 	//Part 4:
 	int numBoundCurves = 0;
 	in >> numBoundCurves;
 	in.ignore(256, '\n');
-	cout << "number of boundary curves: " << numBoundCurves << endl;
+	std::cout << "number of boundary curves: " << numBoundCurves << endl;
 	//Part 5:
 	int* numCurveEdge = new int[numBoundCurves];
 	for (int i = 0; i < numBoundCurves; i++) {
 		in >> numCurveEdge[i];
 		in.ignore(256, '\n');
-		cout << "number of edges belong to curve #" << i + 1 << " : " << numCurveEdge[i] << endl;
+		std::cout << "number of edges belong to curve #" << i + 1 << " : " << numCurveEdge[i] << endl;
 	}
 	//Part 6:
 	//read start and end indeces of points for each edge
@@ -221,7 +222,7 @@ void Controller::loadData() {
 		for (int j = 0; j < numCurveEdge[i]; j++) {
 			int startIndex, endIndex;
 			in >> startIndex >> endIndex;
-			struct edge e = edge(startIndex, endIndex);
+			struct edge* e = new edge(startIndex, endIndex);
 			c.addEdge(e);
 		}
 		this->mainMesh.boundaryCurves.push_back(c);
@@ -242,7 +243,7 @@ void Controller::loadData() {
 	for (int i = 0; i < numPoints; i++) {
 		double x, y;
 		in >> x >> y;
-		Coord c(x, y, i+1);
+		Coord c(x, y, i+1, 0);
 		in.ignore(256, '\n');
 		this->mainMesh.points.push_back(c);
 	}
@@ -262,10 +263,20 @@ void separatePoints(vector<Coord> points, Coord median) {
 	//vector<Coord> points
 }
 void Controller::solveMeshes() {
-	for each (Mesh m in this->meshes)
+	for each (Mesh* m in this->meshes)
 	{
-		m.process();
+		m->process();
 	}
+}
+void Controller::mergeMeshes() {
+
+	Mesh finalMesh;
+	//switch original tag with parTag for first mesh
+	for(int i = 0; i < this->meshes.size(); i++)
+	{
+		finalMesh.correctPoints(this->meshes[i], ((i>0)?this->meshes[i-1]->points.size():0));
+	}
+	finalMesh.writeMeshOutput(0);
 }
 vector<Coord> getProjections(vector<Coord> points, Coord q) {
 	vector<Coord> pp;

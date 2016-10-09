@@ -43,9 +43,9 @@ void Mesh::initTriangle() {
 		radius = 0.5*std::max(abs(Xmax - Xmin), abs(Ymax - Ymin));
 	
 	//part 3: make big triangle
-	Coord p1(Xmid, Ymid + 2 * radius, this->points.size()+1),
-		  p2(Xmid - 4 * radius, Ymid - 2 * radius, this->points.size() + 2),
-		  p3(Xmid + 4 * radius, Ymid - 2 * radius, this->points.size() + 3);
+	Coord p1(Xmid, Ymid + 2 * radius, 0, this->points.size()+1),
+		  p2(Xmid - 4 * radius, Ymid - 2 * radius, 0, this->points.size() + 2),
+		  p3(Xmid + 4 * radius, Ymid - 2 * radius, 0, this->points.size() + 3);
 	this->points.push_back(p1);
 	this->points.push_back(p2);
 	this->points.push_back(p3);
@@ -65,6 +65,67 @@ std::ostream& operator<< (std::ostream& stream, const vector<pair<int, int>>& st
 	}
 	stream << endl;
 	return stream;
+}
+void deleteAll(vector<Triangle*>& data, const vector<int>& deleteIndices)
+{
+	vector<bool> markedElements(data.size(), false);
+	vector<Triangle*> tempBuffer;
+	tempBuffer.reserve(data.size() - deleteIndices.size());
+
+	for (vector<int>::const_iterator itDel = deleteIndices.begin(); itDel != deleteIndices.end(); itDel++)
+		markedElements[*itDel] = true;
+
+	for (size_t i = 0; i<data.size(); i++)
+	{
+		if (!markedElements[i])
+			tempBuffer.push_back(data[i]);
+	}
+	data = tempBuffer;
+}
+void deleteAllEdges(vector<edge*>& data, const vector<int>& deleteIndices)
+{
+	vector<bool> markedElements(data.size(), false);
+	vector<edge*> tempBuffer;
+	tempBuffer.reserve(data.size() - deleteIndices.size());
+
+	for (vector<int>::const_iterator itDel = deleteIndices.begin(); itDel != deleteIndices.end(); itDel++)
+		markedElements[*itDel] = true;
+
+	for (size_t i = 0; i<data.size(); i++)
+	{
+		if (!markedElements[i])
+			tempBuffer.push_back(data[i]);
+	}
+	data = tempBuffer;
+}
+void Mesh::removeBigTriangle() {
+	//remove points
+	vector<Coord> bigTri(this->points.end() -3, this->points.end());
+	this->points.erase(this->points.end() - 3, this->points.end());
+	//remove cells
+	vector<int> deleteIndices;
+	for (int i = 0; i < this->cells.size();i++) {
+		if(this->cells[i]->hasPointLabel(bigTri[0].ptag) || this->cells[i]->hasPointLabel(bigTri[1].ptag) || this->cells[i]->hasPointLabel(bigTri[2].ptag))
+			deleteIndices.push_back(i);
+
+		this->cells[i]->removeNeighbourLabel(bigTri[0].ptag);
+		this->cells[i]->removeNeighbourLabel(bigTri[1].ptag);
+		this->cells[i]->removeNeighbourLabel(bigTri[2].ptag);
+	}
+	deleteAll(this->cells, deleteIndices);
+	//remove edges
+	vector<int> deleteEdges;
+	for (int i = 0; i < this->boundaryCurves.size(); i++) {
+		for (int j = 0; j < this->boundaryCurves[i].edges.size(); j++) {
+			if (this->boundaryCurves[i].edges[j]->hasPointLabel(bigTri[0].ptag) ||
+				this->boundaryCurves[i].edges[j]->hasPointLabel(bigTri[1].ptag) ||
+				this->boundaryCurves[i].edges[j]->hasPointLabel(bigTri[2].ptag)) {
+				deleteEdges.push_back(j);
+			}
+		}
+		deleteAllEdges(this->boundaryCurves[i].edges, deleteEdges);
+	}
+	
 }
 void Mesh::process() {
 	this->initTriangle();
@@ -101,9 +162,13 @@ void Mesh::process() {
 			}
 
 		};
+		
 		//part 11
 		if(pointLabel%10 == 0 || pointLabel == this->numPoints() - 3) this->writeMeshOutput(pointLabel);
 	}
+	//part 12: remove big triangle
+	this->removeBigTriangle();
+	this->writeMeshOutput(0);
 	
 }
 void Mesh::writePltInput(string filename) {
@@ -136,7 +201,7 @@ void Mesh::writePltInput(string filename) {
 		}
 		for (int j = 0; j < this->boundaryCurves.at(i).getNumEdges(); j++)
 		{
-			out << this->boundaryCurves.at(i).getEdge(j).startPointTag << '\t' << this->boundaryCurves.at(i).getEdge(j).endPointTag << '\t' << this->boundaryCurves.at(i).getEdge(j).endPointTag << endl;
+			out << this->boundaryCurves.at(i).getEdge(j)->startPointTag << '\t' << this->boundaryCurves.at(i).getEdge(j)->endPointTag << '\t' << this->boundaryCurves.at(i).getEdge(j)->endPointTag << endl;
 		}
 	}
 
@@ -171,7 +236,7 @@ void Mesh::writeMeshOutput(int iter) {
 	//part 6
 	for (int i = 0; i < this->boundaryCurves.size(); i++) {
 		for (int j = 0; j < this->boundaryCurves.at(i).getNumEdges(); j++) {
-			meshFile << this->boundaryCurves.at(i).getEdge(j).startPointTag <<" "<< this->boundaryCurves.at(i).getEdge(j).endPointTag<< endl;
+			meshFile << this->boundaryCurves.at(i).getEdge(j)->startPointTag <<" "<< this->boundaryCurves.at(i).getEdge(j)->endPointTag<< endl;
 		}
 	}
 	//Part 7
@@ -208,7 +273,7 @@ void Mesh::writeMeshOutput(int iter) {
 		}
 		for (int j = 0; j < this->boundaryCurves.at(i).getNumEdges(); j++)
 		{
-			pltFile << this->boundaryCurves.at(i).getEdge(j).startPointTag << '\t' << this->boundaryCurves.at(i).getEdge(j).endPointTag << '\t' << this->boundaryCurves.at(i).getEdge(j).endPointTag << endl;
+			pltFile << this->boundaryCurves.at(i).getEdge(j)->startPointTag << '\t' << this->boundaryCurves.at(i).getEdge(j)->endPointTag << '\t' << this->boundaryCurves.at(i).getEdge(j)->endPointTag << endl;
 		}
 	}
 	pltFile.close();
@@ -484,4 +549,49 @@ void Mesh::setPoints(vector<Coord> points) {
 }
 void Mesh::addPoints(vector<Coord> points) {
 	this->points.insert(this->points.end(), points.begin(), points.end());
+}
+void Mesh::addBoundaryCurves(vector<Curve> curves) {
+	this->boundaryCurves.insert(this->boundaryCurves.end(), curves.begin(), curves.end());
+}
+void Mesh::addCells(vector<Triangle*> cells) {
+	this->cells.insert(this->cells.end(), cells.begin(), cells.end());
+}
+void Mesh::correctPoints(Mesh* mesh, int offset) {
+	//std::map<int, int> mapIndices;
+	for each(Coord point in mesh->points) {
+		Coord c;
+		c = point;
+		c.tag = point.ptag+offset;
+		c.ptag = 0;
+		this->points.push_back(c);
+		//mapIndices[point.ptag] = point.tag;
+	}
+	//correct edges
+	if(offset>0)
+	for (int i = 0; i < mesh->boundaryCurves[0].edges.size(); i++) {
+		//mesh->boundaryCurves[0].edges[i].endPointTag = mapIndices[mesh->boundaryCurves[0].edges[i].endPointTag];
+		//mesh->boundaryCurves[0].edges[i].startPointTag = mapIndices[mesh->boundaryCurves[0].edges[i].startPointTag];
+		mesh->boundaryCurves[0].edges[i]->startPointTag += offset;
+		mesh->boundaryCurves[0].edges[i]->endPointTag += offset;
+	}
+	this->boundaryCurves.push_back(mesh->boundaryCurves[0]);
+	//correct cells
+	if (offset>0)
+	for (int i = 0; i < mesh->cells.size(); i++) {
+		//mesh->cells[i]->setPointLabel(0, mapIndices[mesh->cells[i]->getPointLabel(0)]);
+		//mesh->cells[i]->setPointLabel(1, mapIndices[mesh->cells[i]->getPointLabel(1)]);
+		//mesh->cells[i]->setPointLabel(2, mapIndices[mesh->cells[i]->getPointLabel(2)]);
+		//mesh->cells[i]->setNeighbourLabel(0, mapIndices[mesh->cells[i]->getNeighbourLabel(0)]);
+		//mesh->cells[i]->setNeighbourLabel(1, mapIndices[mesh->cells[i]->getNeighbourLabel(1)]);
+		//mesh->cells[i]->setNeighbourLabel(2, mapIndices[mesh->cells[i]->getNeighbourLabel(2)]);
+		mesh->cells[i]->setPointLabel(0, mesh->cells[i]->getPointLabel(0) + offset);
+		mesh->cells[i]->setPointLabel(1, mesh->cells[i]->getPointLabel(1) + offset);
+		mesh->cells[i]->setPointLabel(2, mesh->cells[i]->getPointLabel(2) + offset);
+		mesh->cells[i]->setNeighbourLabel(0, mesh->cells[i]->getNeighbourLabel(0) + offset);
+		mesh->cells[i]->setNeighbourLabel(1, mesh->cells[i]->getNeighbourLabel(1) + offset);
+		mesh->cells[i]->setNeighbourLabel(2, mesh->cells[i]->getNeighbourLabel(2) + offset);
+
+	}
+	this->addCells(mesh->cells);
+	//this->writeMeshOutput(0);
 }

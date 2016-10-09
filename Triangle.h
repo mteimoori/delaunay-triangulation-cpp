@@ -15,6 +15,8 @@ public:
 	void setPointLabel(int index, int value);
 	void setNeighbourLabel(int index, int value);
 	int* getPoints();
+	bool hasPointLabel(int label);
+	void removeNeighbourLabel(int label);
 };
 
 #endif

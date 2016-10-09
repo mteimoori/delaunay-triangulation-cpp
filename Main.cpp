@@ -6,4 +6,5 @@ int main() {
 	Controller c = Controller("MeshIn11.Txt");
 	c.separation();
 	c.solveMeshes();
+	c.mergeMeshes();
 }

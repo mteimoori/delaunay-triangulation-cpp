@@ -8,11 +8,11 @@ public:
 	double y;
 	int tag;
 	int ptag;
-	Coord(double x, double y, int tag) {
+	Coord(double x, double y, int tag, int ptag) {
 		this->x = x;
 		this->y = y;
 		this->tag = tag;
-		this->ptag = 0;
+		this->ptag = ptag;
 	}
 	bool operator <(const Coord &p) const {
 		return x < p.x || (x == p.x && y < p.y);

@@ -6,22 +6,27 @@ struct edge {
 	unsigned int startPointTag; unsigned int endPointTag; //index of begining/end points of each edge
 public:
 	edge(unsigned int startPointTag =0, unsigned int endPointTag =0) : startPointTag(startPointTag), endPointTag(endPointTag) {}
+	bool hasPointLabel(int label) {
+		return ((this->endPointTag == label) || (this->startPointTag == label));
+	}
 }; 
 class Curve {
-private:
-	std::vector<edge> edges;
 public:
+	std::vector<edge*> edges;
 	std::map<int, int> vertexDegrees;
-	edge getEdge(int index = 0) {
+	edge* getEdge(int index = 0) {
 		return this->edges.at(index);
 	}
-	std::vector<edge> getEdges() {
+	std::vector<edge*> getEdges() {
 		return this->edges;
 	}
-	void addEdge(edge e) {
-		this->increaseVertexDegree(e.startPointTag);
-		this->increaseVertexDegree(e.endPointTag);
+	void addEdge(edge* e) {
+		this->increaseVertexDegree(e->startPointTag);
+		this->increaseVertexDegree(e->endPointTag);
 		this->edges.push_back(e);
+	}
+	void removeEdge(int index) {
+		this->edges.erase(this->edges.begin() + index);
 	}
 	void increaseVertexDegree(int pointTag) {
 		if (this->vertexDegrees.find(pointTag) == this->vertexDegrees.end()) {

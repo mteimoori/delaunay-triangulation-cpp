@@ -18,6 +18,20 @@ Triangle::Triangle() {
 	this->neighbours[1] = 0;
 	this->neighbours[2] = 0;
 }
+bool Triangle::hasPointLabel(int label) {
+	if (
+		this->points[0] == label ||
+		this->points[1] == label ||
+		this->points[2] == label
+		)
+		return true;
+	return false;
+}
+void Triangle::removeNeighbourLabel(int label) {
+	if (this->neighbours[0] == label) this->neighbours[0] = 0;
+	if (this->neighbours[1] == label) this->neighbours[1] = 0;
+	if (this->neighbours[2] == label) this->neighbours[2] = 0;
+}
 int Triangle::getPointLabel(int num) {
 	return this->points[num];
 }

@@ -26,6 +26,8 @@ private:
 	int getNonCommonPointLabel(int firstCellLabel, int secondCellLabel);
 	void makeTriangle(int cellIndex, int indexPointInCell);
 	Coord* getCoords(Triangle* tri);
+	void removeBigTriangle();
+	void removePoint(Coord c);
 public:
 	static int sId;
 	std::vector<Coord> points;
@@ -37,8 +39,13 @@ public:
 	void writeMeshOutput(int iter);
 	vector<Coord> getPointsByLabel(vector<int> labels);
 	void writePltInput(string filename = "MeshIn.plt");
+	void removeEdge(int index);
 	void setPoints(vector<Coord> points);
 	void addPoints(vector<Coord> points);
+	void addCells(vector<Triangle*> cells);
+	void addBoundaryCurves(vector<Curve> curves);
+	void correctEdgeLabels(Mesh* mesh);
+	void correctPoints(Mesh* mesh, int points);
 	vector<Mesh> divide();
 	Mesh();
 };
