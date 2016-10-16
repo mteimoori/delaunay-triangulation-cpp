@@ -8,11 +8,14 @@ public:
 	Mesh mainMesh;
 	vector<Mesh*> meshes;
 	Controller(string filename);
+	Controller();
 	string filename;
 	void loadData();
 	void separation();
 	void solveMeshes();
 	void mergeMeshes();
+	void sendMeshes();
+	void receiveMesh();
 };
 
 #endif

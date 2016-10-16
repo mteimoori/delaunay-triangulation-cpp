@@ -28,6 +28,7 @@ private:
 	Coord* getCoords(Triangle* tri);
 	void removeBigTriangle();
 	void removePoint(Coord c);
+	int proc;
 public:
 	static int sId;
 	std::vector<Coord> points;
@@ -48,6 +49,7 @@ public:
 	void correctPoints(Mesh* mesh, int points);
 	vector<Mesh> divide();
 	Mesh();
+	Mesh(int numPoints, double** points, int numCells, int** cells, int numEdges, int** edges, int proc);
 };
 
 #endif

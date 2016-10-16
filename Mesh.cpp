@@ -6,7 +6,7 @@
 #include <iomanip>
 #include <algorithm>
 #include <sstream>
-Mesh::Mesh():id(Mesh::sId++){
+Mesh::Mesh():id(Mesh::sId++), proc(0){
 }
 int Mesh::sId = 0;
 void Mesh::initTriangle() {
@@ -211,16 +211,30 @@ void Mesh::writePltInput(string filename) {
 void Mesh::writeMeshOutput(int iter) {
 	//part 1
 	std::stringstream plotname;
-	plotname << "plots/" << this->id <<"_"<< std::to_string(iter) << ".plt";
+	cout <<endl<<"proc name"<< this->proc << endl;
+	if (this->proc == 0) {
+		plotname << "plots/" << this->id << "_" << std::to_string(iter) << ".plt";
+	}
+	else {
+		plotname << "parallel/proc" << this->proc << "_" << std::to_string(iter) << ".plt";
+	}
 	std::string filename = plotname.str();
 	ofstream pltFile(filename, ios::out);
 	if (!pltFile) {
-		cout << "File not opened" << endl;
+		cout << "File not opened:" << "plots/" << this->id << "_" << std::to_string(iter) << ".plt"<< endl;
 		exit(1);
 	}
-	ofstream meshFile("2DMeshCPP.txt", ios::out);
+	std::stringstream meshname;
+	std::string meshfilename = plotname.str();
+	if (this->proc == 0) {
+		meshname << "mesh/" << this->id << "_" << std::to_string(iter) << ".txt";
+	}
+	else {
+		meshname << "parallel/mesh" << this->proc << "_" << std::to_string(iter) << ".txt";
+	}
+	ofstream meshFile(meshfilename, ios::out);
 	if (!meshFile) {
-		cout << "File not opened" << endl;
+		cout << "File not opened: " <<"2DMeshCPP.txt"<< endl;
 		exit(1);
 	}
 	//part 2
@@ -555,6 +569,22 @@ void Mesh::addBoundaryCurves(vector<Curve> curves) {
 }
 void Mesh::addCells(vector<Triangle*> cells) {
 	this->cells.insert(this->cells.end(), cells.begin(), cells.end());
+}
+Mesh::Mesh(int numPoints, double** points, int numCells, int** cells, int numEdges, int** edges, int proc) {
+	for (int i = 0; i < numPoints; i++) {
+		Coord c(points[i][0], points[i][1], points[i][2], points[i][3]);
+		this->points.push_back(c);
+	}
+	for (int i = 0; i < numCells; i++) {
+		Triangle* tri = new Triangle(cells[i][0], cells[i][1], cells[i][2], cells[i][3], cells[i][4], cells[i][5]);
+		this->cells.push_back(tri);
+	}
+	for (int i = 0; i < numEdges; i++) {
+		Curve c;
+		edge* e = new edge(edges[i][0], edges[i][1]);
+		c.addEdge(e);
+	}
+	this->proc = proc;
 }
 void Mesh::correctPoints(Mesh* mesh, int offset) {
 	//std::map<int, int> mapIndices;

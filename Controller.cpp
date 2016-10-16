@@ -5,6 +5,7 @@
 #include <utility>
 #include <sstream>
 #include <iomanip>
+#include "mpi.h"
 using namespace std;
 unsigned int findPoint(Mesh* m, int pointTag) {
 	for (int i = 0; i < m->points.size();i++)
@@ -190,7 +191,7 @@ void Controller::loadData() {
 	ifstream in(this->filename, ios::in);
 	if (!in)
 	{
-		std::cout << "File not opened" << endl;
+		std::cout << "File not opened: "<< this->filename << endl;
 		exit(1);
 	}
 	//Part 2:
@@ -252,6 +253,9 @@ void Controller::loadData() {
 	this->mainMesh.writePltInput("MeshIn.plt");
 
 }
+
+
+
 Controller::Controller(string filename) {
 	this->filename = filename;
 	this->loadData();
