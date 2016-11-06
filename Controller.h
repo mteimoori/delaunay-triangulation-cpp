@@ -13,6 +13,7 @@ public:
 	void loadData();
 	void separation();
 	void solveMeshes();
+	void solveMainMesh();
 	void mergeMeshes();
 	void sendMeshes();
 	void receiveMesh();

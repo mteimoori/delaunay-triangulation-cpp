@@ -272,6 +272,9 @@ void Controller::solveMeshes() {
 		m->process();
 	}
 }
+void Controller::solveMainMesh() {
+	this->mainMesh.process();
+}
 void Controller::mergeMeshes() {
 
 	Mesh finalMesh;

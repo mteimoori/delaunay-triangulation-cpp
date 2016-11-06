@@ -6,6 +6,8 @@
 #include <iomanip>
 #include <algorithm>
 #include <sstream>
+#include <set>
+#define INTERMEDIATE_LOG false
 Mesh::Mesh():id(Mesh::sId++), proc(0){
 }
 int Mesh::sId = 0;
@@ -66,7 +68,7 @@ std::ostream& operator<< (std::ostream& stream, const vector<pair<int, int>>& st
 	stream << endl;
 	return stream;
 }
-void deleteAll(vector<Triangle*>& data, const vector<int>& deleteIndices)
+void deleteAllCells(vector<Triangle*>& data, const vector<int>& deleteIndices)
 {
 	vector<bool> markedElements(data.size(), false);
 	vector<Triangle*> tempBuffer;
@@ -97,35 +99,6 @@ void deleteAllEdges(vector<edge*>& data, const vector<int>& deleteIndices)
 			tempBuffer.push_back(data[i]);
 	}
 	data = tempBuffer;
-}
-void Mesh::removeBigTriangle() {
-	//remove points
-	vector<Coord> bigTri(this->points.end() -3, this->points.end());
-	this->points.erase(this->points.end() - 3, this->points.end());
-	//remove cells
-	vector<int> deleteIndices;
-	for (int i = 0; i < this->cells.size();i++) {
-		if(this->cells[i]->hasPointLabel(bigTri[0].ptag) || this->cells[i]->hasPointLabel(bigTri[1].ptag) || this->cells[i]->hasPointLabel(bigTri[2].ptag))
-			deleteIndices.push_back(i);
-
-		this->cells[i]->removeNeighbourLabel(bigTri[0].ptag);
-		this->cells[i]->removeNeighbourLabel(bigTri[1].ptag);
-		this->cells[i]->removeNeighbourLabel(bigTri[2].ptag);
-	}
-	deleteAll(this->cells, deleteIndices);
-	//remove edges
-	vector<int> deleteEdges;
-	for (int i = 0; i < this->boundaryCurves.size(); i++) {
-		for (int j = 0; j < this->boundaryCurves[i].edges.size(); j++) {
-			if (this->boundaryCurves[i].edges[j]->hasPointLabel(bigTri[0].ptag) ||
-				this->boundaryCurves[i].edges[j]->hasPointLabel(bigTri[1].ptag) ||
-				this->boundaryCurves[i].edges[j]->hasPointLabel(bigTri[2].ptag)) {
-				deleteEdges.push_back(j);
-			}
-		}
-		deleteAllEdges(this->boundaryCurves[i].edges, deleteEdges);
-	}
-	
 }
 void Mesh::process() {
 	this->initTriangle();
@@ -164,10 +137,11 @@ void Mesh::process() {
 		};
 		
 		//part 11
-		if(pointLabel%10 == 0 || pointLabel == this->numPoints() - 3) this->writeMeshOutput(pointLabel);
+		if((INTERMEDIATE_LOG && (pointLabel%10 == 0)) || (pointLabel == this->numPoints() - 3)) this->writeMeshOutput(pointLabel);
 	}
 	//part 12: remove big triangle
 	this->removeBigTriangle();
+	this->removeUndesiredTriangles();
 	this->writeMeshOutput(0);
 	
 }
@@ -292,6 +266,123 @@ void Mesh::writeMeshOutput(int iter) {
 	}
 	pltFile.close();
 	pltFile.close();
+}
+bool middle(double a, double b, double c) {
+	int t;
+	if (a > b) {
+		t = a;
+		a = b;
+		b = t;
+	}
+	if (a <= c && c <= b) return 1;
+	return 0;
+}
+double CCW(Coord a, Coord b, Coord c)
+{
+	return (b.x - a.x)*(c.y - a.y) - (b.y - a.y)*(c.x - a.x);
+}
+bool crossLines(Coord start, Coord end, Coord p3, Coord p4) {
+	if ((CCW(start, end, p3) * CCW(start, end, p4) < 0) &&
+		(CCW(p3, p4, start) * CCW(p3, p4, end) < 0)) return 1;
+	if (CCW(start, end, p3) == 0 && middle(start.x, end.x, p3.x) && middle(start.y, end.y, p3.y)) return 1;
+	if (CCW(start, end, p4) == 0 && middle(start.x, end.x, p4.x) && middle(start.y, end.y, p4.y)) return 1;
+	if (CCW(p3, p4, start) == 0 && middle(p3.x, p4.x, start.x) && middle(p3.y, p4.y, start.y)) return 1;
+	if (CCW(p3, p4, end) == 0 && middle(p3.x, p4.x, end.x) && middle(p3.y, p4.y, end.y)) return 1;
+	return 0;
+}
+
+void Mesh::removeBigTriangle() {
+	//remove points
+	vector<Coord> bigTri(this->points.end() - 3, this->points.end());
+	this->points.erase(this->points.end() - 3, this->points.end());
+	//remove cells
+	vector<int> deleteIndices;
+	for (int i = 0; i < this->cells.size(); i++) {
+		if (this->cells[i]->hasPointLabel(bigTri[0].ptag) || this->cells[i]->hasPointLabel(bigTri[1].ptag) || this->cells[i]->hasPointLabel(bigTri[2].ptag))
+			deleteIndices.push_back(i);
+
+		this->cells[i]->removeNeighbourLabel(bigTri[0].ptag);
+		this->cells[i]->removeNeighbourLabel(bigTri[1].ptag);
+		this->cells[i]->removeNeighbourLabel(bigTri[2].ptag);
+	}
+	deleteAllCells(this->cells, deleteIndices);
+	//remove edges
+	/*
+	for (int i = 0; i < this->boundaryCurves.size(); i++) {
+		vector<int> deleteEdges;
+		for (int j = 0; j < this->boundaryCurves[i].edges.size(); j++) {
+			if (this->boundaryCurves[i].edges[j]->hasPointLabel(bigTri[0].ptag) ||
+				this->boundaryCurves[i].edges[j]->hasPointLabel(bigTri[1].ptag) ||
+				this->boundaryCurves[i].edges[j]->hasPointLabel(bigTri[2].ptag)) {
+				deleteEdges.push_back(j);
+			}
+		}
+		deleteAllEdges(this->boundaryCurves[i].edges, deleteEdges);
+	}
+	*/
+
+}
+void Mesh::removeUndesiredTriangles() {
+	vector<int> unwantedCells;
+	//Part 1:
+	int numEdges = this->getTotalEdges();
+	//part 2
+	Coord lastPoint = this->points.back();
+	Coord outPoint(2 * lastPoint.x, 2 * lastPoint.y);
+	//part 3
+	//part 4
+	int numDesiredCells =0;
+	for (int cellIter = 0; cellIter < this->cells.size(); cellIter++)
+	{
+		//part 5
+		int  p1 = this->cells[cellIter]->getPointLabel(0);
+		int  p2 = this->cells[cellIter]->getPointLabel(1);
+		int  p3 = this->cells[cellIter]->getPointLabel(2);
+		//part 6
+		if (p1 == this->numPoints() - 3 || p2 == this->numPoints() - 3 || p3 == this->numPoints() - 3) continue;
+		//part 7
+		bool desiredCell = false;
+		//part 8
+		Coord cellCenter((this->getPointByLabel(p1).x + this->getPointByLabel(p2).x + this->getPointByLabel(p3).x)/3.0,
+						 (this->getPointByLabel(p1).y + this->getPointByLabel(p2).y + this->getPointByLabel(p3).y)/3.0);
+
+		//part 9
+		int numberOfIntersection = 0;
+		for each (Curve c in this->boundaryCurves)
+		{
+			for (int i = 0; i < c.getNumEdges(); i++) {
+				//part 10,11
+				Coord
+					startPoint = this->getPointByLabel(c.getEdge(i)->startPointTag),
+					endPoint = this->getPointByLabel(c.getEdge(i)->endPointTag);
+				//part 12
+				if(crossLines(startPoint, endPoint, cellCenter, outPoint)) numberOfIntersection++;
+				
+
+			}
+		}
+		//part 13
+		if (numberOfIntersection % 2 == 0) desiredCell = true;
+		//part 14
+		int N = 0;
+		if (desiredCell) {
+			numDesiredCells++;
+			unwantedCells.push_back(cellIter);
+		}
+
+	}
+	deleteAllCells(this->cells, unwantedCells);
+	cout << numDesiredCells;
+
+}
+
+int Mesh::getTotalEdges() {
+	int total = 0;
+	for each (Curve c in this->boundaryCurves)
+	{
+		total += c.getNumEdges();
+	}
+	return total;
 }
 bool Mesh::isDelaunay(int firstCellLabel, int secondCellLabel) {
 	//part 1 

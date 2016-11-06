@@ -2,6 +2,8 @@
 #include "Controller.h"
 #include "mpi.h"
 enum TAG { NUM_POINTS, COORDS, NUM_CELLS, CELLS, NUM_EDGES, EDGES  };
+enum MODE { PARALLEL, SERIAL };
+#define MODE SERIAL
 void mpiInit() {
 	// Initialize the MPI environment
 	MPI_Init(NULL, NULL);
@@ -118,27 +120,41 @@ void receiveMeshes(int proc) {
 	mesh->process();
 }
 int main() {
-	mpiInit();
-	// Get the number of processes
-	int procNum;
-	MPI_Comm_size(MPI_COMM_WORLD, &procNum);
-	// Get the rank of the process
-	int procRank;
-	MPI_Comm_rank(MPI_COMM_WORLD, &procRank);
-	//part 1
-	if (procRank == 0) {
-		Controller c = Controller("MeshIn11.Txt");
-		c.separation();
-		sendMeshes(c.meshes);
-		//receiveMeshes(procRank);
-		//c.solveMeshes();
-		//c.mergeMeshes();
+	switch (MODE)
+	{
+		case PARALLEL:
+			//------------------START PARALLEL MODE-------------------
+			mpiInit();
+			// Get the number of processes
+			int procNum;
+			MPI_Comm_size(MPI_COMM_WORLD, &procNum);
+			// Get the rank of the process
+			int procRank;
+			MPI_Comm_rank(MPI_COMM_WORLD, &procRank);
+			//part 1
+			if (procRank == 0) {
+				Controller c = Controller("MeshIn11.Txt");
+				c.separation();
+				sendMeshes(c.meshes);
+				//receiveMeshes(procRank);
+				//c.solveMeshes();
+				//c.mergeMeshes();
+			}
+			MPI_Barrier(MPI_COMM_WORLD);
+			if (procRank != 0) {
+				receiveMeshes(procRank);
+			}
+			// Finalize the MPI environment.
+			MPI_Finalize();
+			//------------------END PARALLEL MODE-------------------
+			break;
+		case SERIAL:
+			//------------------START SERIAL MODE-------------------
+			Controller c = Controller("MeshIn11.Txt");
+			c.solveMainMesh();
+			//------------------END SERIAL MODE-------------------
+			break;
 	}
-	MPI_Barrier(MPI_COMM_WORLD);
-	if (procRank != 0) {
-		receiveMeshes(procRank);
-	}
-	// Finalize the MPI environment.
-	MPI_Finalize();
+	
 
 }
