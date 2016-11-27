@@ -9,12 +9,13 @@ public:
 	vector<Mesh*> meshes;
 	Controller(string filename);
 	Controller();
+	Controller(Mesh* mesh1, Mesh* mesh2);
 	string filename;
 	void loadData();
 	void separation();
 	void solveMeshes();
 	void solveMainMesh();
-	void mergeMeshes();
+	Mesh* mergeMeshes();
 	void sendMeshes();
 	void receiveMesh();
 };

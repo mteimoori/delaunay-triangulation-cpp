@@ -156,6 +156,7 @@ void matchParts(Mesh* m1, Mesh* m2) {
 	m2->addPoints(m1->getPointsByLabel(leaves));
 }
 void Controller::separation() {
+	//find median
 	Coord median;
 	size_t size = this->mainMesh.points.size();
 	std::sort(this->mainMesh.points.begin(), this->mainMesh.points.end(), [](auto &left, auto &right) {
@@ -182,8 +183,8 @@ void Controller::separation() {
 	this->meshes.push_back(m1);
 	this->meshes.push_back(m2);
 	//write seperated shapes
-	m1->writePltInput("MeshInput-1.plt");
-	m2->writePltInput("MeshInput-2.plt");
+	m1->writePltInput("separated-1.plt");
+	m2->writePltInput("separated-2.plt");
 }
 
 void Controller::loadData() {
@@ -269,21 +270,29 @@ void separatePoints(vector<Coord> points, Coord median) {
 void Controller::solveMeshes() {
 	for each (Mesh* m in this->meshes)
 	{
-		m->process();
+		m->process(1);
 	}
 }
 void Controller::solveMainMesh() {
-	this->mainMesh.process();
+	this->mainMesh.process(0);
+	this->mainMesh.refinement(0);
 }
-void Controller::mergeMeshes() {
+Mesh* Controller::mergeMeshes() {
 
-	Mesh finalMesh;
+	Mesh* finalMesh = new Mesh();
 	//switch original tag with parTag for first mesh
 	for(int i = 0; i < this->meshes.size(); i++)
 	{
-		finalMesh.correctPoints(this->meshes[i], ((i>0)?this->meshes[i-1]->points.size():0));
+		finalMesh->correctPoints(this->meshes[i], ((i>0)?this->meshes[i-1]->points.size():0));
 	}
-	finalMesh.writeMeshOutput(0);
+	//finalMesh->removeUndesiredTriangles();
+	finalMesh->writeMeshOutput(0,"merged",1);
+	return finalMesh;
+}
+Controller::Controller(Mesh* mesh1, Mesh* mesh2) {
+	this->meshes.push_back(mesh1);
+	this->meshes.push_back(mesh2);
+	Mesh* finalMesh = this->mergeMeshes();	
 }
 vector<Coord> getProjections(vector<Coord> points, Coord q) {
 	vector<Coord> pp;

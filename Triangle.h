@@ -17,6 +17,7 @@ public:
 	int* getPoints();
 	bool hasPointLabel(int label);
 	void removeNeighbourLabel(int label);
+	void swapNeighbours(Triangle* second);
 };
 
 #endif

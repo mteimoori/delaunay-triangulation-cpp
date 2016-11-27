@@ -100,10 +100,12 @@ void deleteAllEdges(vector<edge*>& data, const vector<int>& deleteIndices)
 	}
 	data = tempBuffer;
 }
-void Mesh::process() {
+void Mesh::process(bool isParallel = false) {
+	if(isParallel) cout << "Start solving on proc " << this->proc << endl;
+	else cout << "Start solving " << endl;
 	this->initTriangle();
 	for (int pointLabel = 1; pointLabel <= this->numPoints()-3; pointLabel++) {
-		cout << "insert point " << pointLabel << endl;
+		//if (!isParallel) cout << "insert point " << pointLabel << endl;
 		Coord pointN = this->points.at(pointLabel -1);
 		//cout << pointN.x <<'\t'<< pointN.y<< endl;
 		int cellContainPoint = this->getTriangleContainsPoint(pointN);
@@ -137,13 +139,174 @@ void Mesh::process() {
 		};
 		
 		//part 11
-		if((INTERMEDIATE_LOG && (pointLabel%10 == 0)) || (pointLabel == this->numPoints() - 3)) this->writeMeshOutput(pointLabel);
+		if((INTERMEDIATE_LOG && (pointLabel%10 == 0)) || (pointLabel == this->numPoints() - 3)) this->writeMeshOutput(pointLabel,"iter", isParallel);
 	}
 	//part 12: remove big triangle
-	this->removeBigTriangle();
-	this->removeUndesiredTriangles();
-	this->writeMeshOutput(0);
+	//this->removeBigTriangle();
+	if (!isParallel) { //for serial mode
+		this->removeUndesiredTriangles();
+	}
 	
+	this->writeMeshOutput(0,"solved", isParallel);
+	
+}
+void Mesh::refinement(bool isParallel = false) {
+	cout << "start refinement" << endl;
+	int pointIndex = this->points.size()-1;
+	this->numRunningCells = this->cells.size();
+	//this->stack.clear();
+	//part1
+	//already in memory
+	//part 2
+	this->elementSize();
+	//part 3
+	this->grad.clear();
+	//part 4
+	int totalIter = 0;
+	while (true) {
+		totalIter++;
+		cout << totalIter<<endl;
+		//part 5 
+		int candidateCellIndex = this->findDesiredTriangle();
+		//cout << candidateCellIndex<<endl;
+		if (candidateCellIndex == -1) break;
+		//part 6
+		Triangle* tri = this->cells[candidateCellIndex];
+		int p1 = tri->getPointLabel(0);
+		int p2 = tri->getPointLabel(1);
+		int p3 = tri->getPointLabel(2);
+		//part 7 set middle as new point
+		Coord pn((this->getPointByLabel(p1).x + this->getPointByLabel(p2).x + this->getPointByLabel(p3).x) / 3.0,
+			        (this->getPointByLabel(p1).y + this->getPointByLabel(p2).y + this->getPointByLabel(p3).y) / 3.0, this->points.size()+1, 0);
+			//Part 8: add this point to the points
+			//pointIndex++;
+			//this->setPoint(pointIndex, pn);
+			this->points.push_back(pn);
+			this->SF[pn.tag] = (this->SF[p1] + this->SF[p2] + this->SF[p3]) / 3.0;
+			//part 9:
+			this->makeTriangle(candidateCellIndex, pn.tag);
+			//part 10
+			int NC = this->cells.size();
+			this->grad[NC - 2] = 0;
+			this->grad[NC - 3] = 0;
+			this->grad[candidateCellIndex] = 0;
+			//part 11
+			while (this->stack.size() > 0) {
+				//part 12
+				int firstCellLabel = this->stack.at(this->stack.size() - 1).first;
+				int secondCellLabel = this->stack.at(this->stack.size() - 1).second;
+				this->stack.erase(this->stack.begin() + this->stack.size() - 1);
+				//part 13
+				Triangle* tri1 = this->cells[firstCellLabel - 1];
+				if (
+					secondCellLabel != tri1->getNeighbourLabel(0) &&
+					secondCellLabel != tri1->getNeighbourLabel(1) &&
+					secondCellLabel != tri1->getNeighbourLabel(2)
+					) continue;
+				Triangle* tri2 = this->cells[secondCellLabel - 1];
+				if (
+					firstCellLabel != tri2->getNeighbourLabel(0) &&
+					firstCellLabel != tri2->getNeighbourLabel(1) &&
+					firstCellLabel != tri2->getNeighbourLabel(2)
+					) continue;
+				if (!this->isDelaunay(firstCellLabel, secondCellLabel)) {
+					this->swapEdges(firstCellLabel, secondCellLabel);
+					this->grad[firstCellLabel] = 0;
+					this->grad[secondCellLabel] = 0;
+				}
+
+			};
+			//part 16
+	}
+	//part 17
+	this->writeMeshOutput(0, "refinement", isParallel);
+
+}
+int Mesh::findDesiredTriangle() {
+	std::map<int, double> area;
+	double SFC = 0;
+	double edge12 = 0;
+	double edge13 = 0;
+	double edge23 = 0;
+
+	//Part 1
+	int desiredTriangle = 0;
+	double max = 0;
+	//Part 2
+	for (int i = 0; i < this->cells.size(); i++) {
+		//part 3
+		Triangle* tri = this->cells[i];
+		int p1 = tri->getPointLabel(0);
+		int p2 = tri->getPointLabel(1);
+		int p3 = tri->getPointLabel(2);
+		//part 4
+
+		double x12 = this->getPointByLabel(p2).x - this->getPointByLabel(p1).x;
+		double y12 = this->getPointByLabel(p2).y - this->getPointByLabel(p1).y;
+		double x13 = this->getPointByLabel(p3).x - this->getPointByLabel(p1).x;
+		double y13 = this->getPointByLabel(p3).y - this->getPointByLabel(p1).y;
+		double x23 = this->getPointByLabel(p3).x - this->getPointByLabel(p2).x;
+		double y23 = this->getPointByLabel(p3).y - this->getPointByLabel(p2).y;
+		//part 5
+		area[i] = abs(x12*y13 - y12*x13) / 2.0;
+		//part 6
+		SFC = (this->SF[p1] + this->SF[p2] + this->SF[p3]) / 3.0;
+		//part 7
+		edge12 = sqrt(x12*x12 + y12*y12);
+		edge13 = sqrt(x13*x13 + y13*y13);
+		edge23 = sqrt(x23*x23 + y23*y23);
+		//part 8
+		if (
+			area[i] < (SFC*SFC / 2.0) &&
+			edge12 < 2 * SFC &&
+			edge13 < 2 * SFC &&
+			edge23 < 2 * SFC
+			)
+			grad[i] = true;
+		else 
+			grad[i] = false;
+	}
+	//part 9
+	//can be removed 
+	int max_index = -1;
+	for (int j = 0; j < this->cells.size(); j++) {
+		if (!grad[j] && area[j]>max) {
+			max = area[j];
+			max_index = j;
+		}
+	}
+	return (max_index >= 0) ? max_index : -1;
+}
+void Mesh::elementSize() {
+	//part 1
+	double size = 0;
+	// part 2
+	double sum = 0;
+	for each (Curve c in this->boundaryCurves)
+	{
+		for each (edge* e in c.edges)
+		{
+			//part 3:
+			int p1 = e->startPointTag;
+			int p2 = e->endPointTag;
+			Coord c1 = this->getPointByLabel(p1);
+			Coord c2 = this->getPointByLabel(p2);
+			//part 4:
+			double edge_length = sqrt(pow(c1.x - c2.x, 2) + pow(c1.y - c2.y, 2));
+			//part 5:
+			this->edgeSize(p1, edge_length);
+			this->edgeSize(p2, edge_length);
+		}
+	}
+
+}
+void Mesh::edgeSize(int pointTag, double edgeLenght) {
+	if (this->SF.find(pointTag) == this->SF.end()) {
+		this->SF[pointTag] = edgeLenght / 2.0;
+	}
+	else {
+		this->SF[pointTag] = this->SF[pointTag] + (edgeLenght / 2.0);
+	}
 }
 void Mesh::writePltInput(string filename) {
 	ofstream out(filename, ios::out);
@@ -182,33 +345,34 @@ void Mesh::writePltInput(string filename) {
 	out.close();
 	exit;
 }
-void Mesh::writeMeshOutput(int iter) {
-	//part 1
+void Mesh::writeMeshOutput(int iter, char* label = "", bool isParallel = false) {
+	//part 1 : create and open plt file
 	std::stringstream plotname;
-	cout <<endl<<"proc name"<< this->proc << endl;
-	if (this->proc == 0) {
-		plotname << "plots/" << this->id << "_" << std::to_string(iter) << ".plt";
+	//cout <<endl<<"proc name"<< this->proc << endl;
+	if (!isParallel) {
+		plotname << "serial/" << label << "_" << this->id << "_" << std::to_string(iter) << ".plt";
 	}
 	else {
-		plotname << "parallel/proc" << this->proc << "_" << std::to_string(iter) << ".plt";
+		plotname << "parallel/"<< label <<"_proc" << this->proc << "_" << std::to_string(iter) << ".plt";
 	}
 	std::string filename = plotname.str();
 	ofstream pltFile(filename, ios::out);
 	if (!pltFile) {
-		cout << "File not opened:" << "plots/" << this->id << "_" << std::to_string(iter) << ".plt"<< endl;
+		cout << "File not opened:" << filename << endl;
 		exit(1);
 	}
+	//part 1 : create and open txt file
 	std::stringstream meshname;
-	std::string meshfilename = plotname.str();
-	if (this->proc == 0) {
-		meshname << "mesh/" << this->id << "_" << std::to_string(iter) << ".txt";
+	if (!isParallel) {
+		meshname << "serial/" << label << "_" << this->id << "_" << std::to_string(iter) << ".txt";
 	}
 	else {
-		meshname << "parallel/mesh" << this->proc << "_" << std::to_string(iter) << ".txt";
+		meshname << "parallel/" << label << "_proc" << this->proc << "_" << std::to_string(iter) << ".txt";
 	}
+	std::string meshfilename = meshname.str();
 	ofstream meshFile(meshfilename, ios::out);
 	if (!meshFile) {
-		cout << "File not opened: " <<"2DMeshCPP.txt"<< endl;
+		cout << "File not opened: " << filename << endl;
 		exit(1);
 	}
 	//part 2
@@ -265,7 +429,7 @@ void Mesh::writeMeshOutput(int iter) {
 		}
 	}
 	pltFile.close();
-	pltFile.close();
+	meshFile.close();
 }
 bool middle(double a, double b, double c) {
 	int t;
@@ -331,7 +495,7 @@ void Mesh::removeUndesiredTriangles() {
 	Coord outPoint(2 * lastPoint.x, 2 * lastPoint.y);
 	//part 3
 	//part 4
-	int numDesiredCells =0;
+	int iterdesiredCells =0;
 	for (int cellIter = 0; cellIter < this->cells.size(); cellIter++)
 	{
 		//part 5
@@ -339,9 +503,9 @@ void Mesh::removeUndesiredTriangles() {
 		int  p2 = this->cells[cellIter]->getPointLabel(1);
 		int  p3 = this->cells[cellIter]->getPointLabel(2);
 		//part 6
-		if (p1 == this->numPoints() - 3 || p2 == this->numPoints() - 3 || p3 == this->numPoints() - 3) continue;
+		if ((p1 > this->numPoints() - 3) || (p2 > this->numPoints() - 3) || (p3 > this->numPoints() - 3)) continue;
 		//part 7
-		bool desiredCell = false;
+		bool desiredArea = true;
 		//part 8
 		Coord cellCenter((this->getPointByLabel(p1).x + this->getPointByLabel(p2).x + this->getPointByLabel(p3).x)/3.0,
 						 (this->getPointByLabel(p1).y + this->getPointByLabel(p2).y + this->getPointByLabel(p3).y)/3.0);
@@ -362,17 +526,54 @@ void Mesh::removeUndesiredTriangles() {
 			}
 		}
 		//part 13
-		if (numberOfIntersection % 2 == 0) desiredCell = true;
+		if (numberOfIntersection % 2 == 0) desiredArea = false;
 		//part 14
 		int N = 0;
-		if (desiredCell) {
-			numDesiredCells++;
-			unwantedCells.push_back(cellIter);
+		if (desiredArea) { // move desired cells to begining of array
+			//unwantedCells.push_back(cellIter);
+			Triangle* temp = this->cells[cellIter];
+			this->cells[cellIter] = this->cells[iterdesiredCells];
+			this->cells[iterdesiredCells] = temp;
+			//
+			//this->cells[cellIter]->swapNeighbours(this->cells[iterUndesiredCells]);
+			
+			//part 15: correct those cells which have swaped cell as neighbour to new position (iter) => (cellIter1) 
+			
+			vector <vector<int>> correctedNeighbours;
+			for (int cellIter2 = 0; cellIter2 < this->cells.size(); cellIter2++)
+			{
+				vector<int> foo = { 0,0,0 };
+				correctedNeighbours.push_back(foo);
+				for (int j1 = 0; j1 < 3; j1++) {
+					if (this->cells[cellIter2]->getNeighbourLabel(j1) == iterdesiredCells +1) {
+						this->cells[cellIter2]->setNeighbourLabel(j1, cellIter+1);
+						correctedNeighbours[cellIter2][j1] = 1;
+					}
+				}
+			}
+			//part 16: correct those cells which have swaped cell as neighbour to new position (cellIter1) => (iter)
+			for (int cellIter2 = 0; cellIter2 < this->cells.size(); cellIter2++)
+			{
+				for (int j1 = 0; j1 < 3; j1++) {
+					if((this->cells[cellIter2]->getNeighbourLabel(j1) == cellIter+1) && correctedNeighbours[cellIter2][j1] == 0) this->cells[cellIter2]->setNeighbourLabel(j1, iterdesiredCells +1);
+				}
+			}
+			
+			iterdesiredCells++;
 		}
 
 	}
-	deleteAllCells(this->cells, unwantedCells);
-	cout << numDesiredCells;
+	//part 17
+	this->cells.resize(iterdesiredCells);
+	//deleteAllCells(this->cells, unwantedCells);
+	int numCells= this->cells.size();
+	for (int i = 0; i < this->cells.size(); i++) {
+		for (int j = 0; j < 3; j++) {
+			if (this->cells[i]->getNeighbourLabel(j)>numCells) this->cells[i]->setNeighbourLabel(j, 0);
+		}
+	}
+	//part 18: remove last 3 points
+	this->points.resize(this->points.size() - 3);
 
 }
 
@@ -391,7 +592,12 @@ bool Mesh::isDelaunay(int firstCellLabel, int secondCellLabel) {
 	int p2 = firstTriangle->getPointLabel(1);
 	int p3 = firstTriangle->getPointLabel(2);
 	//part 2 
-	int p4 = this->getNonCommonPointLabel(firstCellLabel, secondCellLabel);
+	//int p4 = this->getNonCommonPointLabel(firstCellLabel, secondCellLabel);
+	int p4;
+	Triangle* secondTriangle = this->cells[secondCellLabel - 1];
+	for (int j = 0; j < 3; j++) {
+		if (secondTriangle->getNeighbourLabel(j) == firstCellLabel) p4 = secondTriangle->getPointLabel(j);
+	}
 	//part 3
 	Coord pc1 = this->getPointByLabel(p1);
 	Coord pc2 = this->getPointByLabel(p2);
@@ -652,6 +858,12 @@ Coord* Mesh::getCoords(Triangle* tri) {
 void Mesh::setPoints(vector<Coord> points) {
 	this->points = points;
 }
+void Mesh::setPoint(int index, Coord point) {
+	if (this->points.size() > index)
+		this->points[index] = point;
+	else
+		this->points.push_back(point);
+}
 void Mesh::addPoints(vector<Coord> points) {
 	this->points.insert(this->points.end(), points.begin(), points.end());
 }
@@ -670,11 +882,12 @@ Mesh::Mesh(int numPoints, double** points, int numCells, int** cells, int numEdg
 		Triangle* tri = new Triangle(cells[i][0], cells[i][1], cells[i][2], cells[i][3], cells[i][4], cells[i][5]);
 		this->cells.push_back(tri);
 	}
+	Curve c;
 	for (int i = 0; i < numEdges; i++) {
-		Curve c;
 		edge* e = new edge(edges[i][0], edges[i][1]);
 		c.addEdge(e);
 	}
+	this->boundaryCurves.push_back(c);
 	this->proc = proc;
 }
 void Mesh::correctPoints(Mesh* mesh, int offset) {

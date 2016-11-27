@@ -23,52 +23,54 @@ int** alloc2dInt(int rows, int cols) {
 		array[i] = &(data[cols*i]);
 	return array;
 }
+void sendMesh(Mesh* m, int sourceProc,int destinationProc) {
+	//send points
+	int rows = m->points.size();
+	int cols = 4;
+	double **points = alloc2dDouble(rows, cols);
+	for (int i = 0; i < rows; i++) {
+		points[i][0] = m->points[i].x;
+		points[i][1] = m->points[i].y;
+		points[i][2] = m->points[i].tag;
+		points[i][3] = m->points[i].ptag;
+	}
+	cout << "sent points from proc "<< sourceProc<<" to " << destinationProc << ": " << endl;
+	MPI_Send(&rows, 1, MPI_INT, destinationProc, NUM_POINTS, MPI_COMM_WORLD);
+	MPI_Send(&points[0][0], rows*cols, MPI_DOUBLE, destinationProc, COORDS, MPI_COMM_WORLD);
 
-void sendMeshes(vector<Mesh*> meshes) {
+	//send cells
+	int crows = m->cells.size();
+	int ccols = 6;
+	int **cells = alloc2dInt(crows, ccols);
+	for (int i = 0; i < crows; i++) {
+		cells[i][0] = m->cells[i]->getPointLabel(0);
+		cells[i][1] = m->cells[i]->getPointLabel(1);
+		cells[i][2] = m->cells[i]->getPointLabel(2);
+		cells[i][3] = m->cells[i]->getNeighbourLabel(0);
+		cells[i][4] = m->cells[i]->getNeighbourLabel(1);
+		cells[i][5] = m->cells[i]->getNeighbourLabel(2);
+	}
+	cout << "sent cells from proc  " << sourceProc << "  to " << destinationProc << ": " << endl;
+	MPI_Send(&crows, 1, MPI_INT, destinationProc, NUM_CELLS, MPI_COMM_WORLD);
+	MPI_Send(&cells[0][0], crows*ccols, MPI_INT, destinationProc, CELLS, MPI_COMM_WORLD);
+	//send boundary
+	int numEdges = m->boundaryCurves[0].edges.size();
+	int eCols = 2;
+	int **edges = alloc2dInt(numEdges, eCols);
+	for (int i = 0; i < numEdges; i++) {
+		edges[i][0] = m->boundaryCurves[0].getEdge(i)->startPointTag;
+		edges[i][1] = m->boundaryCurves[0].getEdge(i)->endPointTag;
+	}
+	cout << "sent boundary from proc  " << sourceProc << "  to " << destinationProc << ": " << endl;
+	MPI_Send(&numEdges, 1, MPI_INT, destinationProc, NUM_EDGES, MPI_COMM_WORLD);
+	MPI_Send(&edges[0][0], eCols*numEdges, MPI_INT, destinationProc, EDGES, MPI_COMM_WORLD);
+}
+void scatterMeshes(vector<Mesh*> meshes, int currentProc) {
 	int destinationProc = 0;
 	for each (Mesh* m in meshes)
 	{
 		destinationProc++;
-		//send points
-		int rows = m->points.size();
-		int cols = 4;
-		double **points = alloc2dDouble(rows, cols);
-		for (int i = 0; i < rows; i++) {
-			points[i][0] = m->points[i].x;
-			points[i][1] = m->points[i].y;
-			points[i][2] = m->points[i].tag;
-			points[i][3] = m->points[i].ptag;
-		}
-		cout << "sent points from proc 0 to " << destinationProc <<": "<< endl;
-		MPI_Send(&rows, 1, MPI_INT, destinationProc, NUM_POINTS, MPI_COMM_WORLD);
-		MPI_Send(&points[0][0], rows*cols, MPI_DOUBLE, destinationProc, COORDS, MPI_COMM_WORLD);
-
-		//send cells
-		int crows = m->cells.size();
-		int ccols = 6;
-		int **cells = alloc2dInt(crows, ccols);
-		for (int i = 0; i < crows; i++) {
-			cells[i][0] = m->cells[i]->getPointLabel(0);
-			cells[i][1] = m->cells[i]->getPointLabel(1);
-			cells[i][2] = m->cells[i]->getPointLabel(2);
-			cells[i][3] = m->cells[i]->getNeighbourLabel(0);
-			cells[i][4] = m->cells[i]->getNeighbourLabel(1);
-			cells[i][5] = m->cells[i]->getNeighbourLabel(2);
-		}
-		cout << "sent cells from proc 0 to " << destinationProc << ": " << endl;
-		MPI_Send(&crows, 1, MPI_INT, destinationProc, NUM_CELLS, MPI_COMM_WORLD);
-		MPI_Send(&cells[0][0], crows*ccols, MPI_INT, destinationProc, CELLS, MPI_COMM_WORLD);
-		//send boundary
-		int numEdges = m->boundaryCurves[0].edges.size();
-		int eCols = 2;
-		int **edges = alloc2dInt(numEdges, eCols);
-		for (int i = 0; i < numEdges; i++) {
-			edges[i][0] = m->boundaryCurves[0].getEdge(i)->startPointTag;
-			edges[i][1] = m->boundaryCurves[0].getEdge(i)->endPointTag;
-		}
-		cout << "sent boundary from proc 0 to " << destinationProc << ": " << endl;
-		MPI_Send(&numEdges, 1, MPI_INT, destinationProc, NUM_EDGES, MPI_COMM_WORLD);
-		MPI_Send(&edges[0][0], eCols*numEdges, MPI_INT, destinationProc, EDGES, MPI_COMM_WORLD);
+		sendMesh(m, currentProc, destinationProc);
 	}
 }
 void printPoints(double ** coords, int rows) {
@@ -92,32 +94,32 @@ void printEdges(int ** edges, int rows) {
 	}
 	cout << "end printing edges" << endl;
 }
-void receiveMeshes(int proc) {
+Mesh* receiveMeshes(int source, int currentProc) {
 	//receive points
 	MPI_Status status;
 	int numPoints;
-	MPI_Recv(&(numPoints), 1, MPI_INT, 0, NUM_POINTS, MPI_COMM_WORLD, &status);
+	MPI_Recv(&(numPoints), 1, MPI_INT, source, NUM_POINTS, MPI_COMM_WORLD, &status);
 	double** coords = alloc2dDouble(numPoints, 4);
-	MPI_Recv(&(coords[0][0]), numPoints * 4, MPI_DOUBLE, 0, COORDS, MPI_COMM_WORLD, &status);
-	cout << "proc "<< proc<< " received COORDS from proc 0: " << endl;
-	printPoints(coords, numPoints);
+	MPI_Recv(&(coords[0][0]), numPoints * 4, MPI_DOUBLE, source, COORDS, MPI_COMM_WORLD, &status);
+	cout << "proc "<< currentProc << " received COORDS from proc " << source << ": " << endl;
+	//printPoints(coords, numPoints);
 	//receive cells
 	int numCells;
-	MPI_Recv(&(numCells), 1, MPI_INT, 0, NUM_CELLS, MPI_COMM_WORLD, &status);
+	MPI_Recv(&(numCells), 1, MPI_INT, source, NUM_CELLS, MPI_COMM_WORLD, &status);
 	int** cells = alloc2dInt(numCells, 6);
-	MPI_Recv(&(cells[0][0]), numCells * 6, MPI_INT, 0, CELLS, MPI_COMM_WORLD, &status);
-	cout << "proc " << proc << " received CELLS from proc 0: " << endl;
-	printCells(cells, numCells);
+	MPI_Recv(&(cells[0][0]), numCells * 6, MPI_INT, source, CELLS, MPI_COMM_WORLD, &status);
+	cout << "proc " << currentProc << " received CELLS from proc " << source << ": " << endl;
+	//printCells(cells, numCells);
 	//receive boundary
 	int numEdges;
-	MPI_Recv(&(numEdges), 1, MPI_INT, 0, NUM_EDGES, MPI_COMM_WORLD, &status);
+	MPI_Recv(&(numEdges), 1, MPI_INT, source, NUM_EDGES, MPI_COMM_WORLD, &status);
 	int** edges = alloc2dInt(numEdges, 2);
-	MPI_Recv(&(edges[0][0]), numEdges * 2, MPI_INT, 0, EDGES, MPI_COMM_WORLD, &status);
-	cout << "proc " << proc << " received EDGES from proc 0: " << endl;
-	printEdges(edges, numEdges);
+	MPI_Recv(&(edges[0][0]), numEdges * 2, MPI_INT, source, EDGES, MPI_COMM_WORLD, &status);
+	cout << "proc " << currentProc << " received EDGES from proc "<< source<<": " << endl;
+	//printEdges(edges, numEdges);
 	//make local mesh
-	Mesh * mesh = new Mesh(numPoints, coords, numCells, cells, numEdges, edges, proc);
-	mesh->process();
+	Mesh * mesh = new Mesh(numPoints, coords, numCells, cells, numEdges, edges, currentProc);
+	return mesh;
 }
 int main() {
 	switch (MODE)
@@ -135,14 +137,25 @@ int main() {
 			if (procRank == 0) {
 				Controller c = Controller("MeshIn11.Txt");
 				c.separation();
-				sendMeshes(c.meshes);
+				scatterMeshes(c.meshes, procRank);
+				
 				//receiveMeshes(procRank);
 				//c.solveMeshes();
 				//c.mergeMeshes();
 			}
 			MPI_Barrier(MPI_COMM_WORLD);
 			if (procRank != 0) {
-				receiveMeshes(procRank);
+				//solve it on current node
+				Mesh * mesh = receiveMeshes(0, procRank);
+				mesh->process(1);
+				//send it back to master node
+				sendMesh(mesh, procRank, 0);
+			}
+			MPI_Barrier(MPI_COMM_WORLD);
+			if (procRank == 0) {
+				Mesh * mesh1 = receiveMeshes(1, 0);
+				Mesh * mesh2 = receiveMeshes(2, 0);
+				Controller c = Controller(mesh1, mesh2);
 			}
 			// Finalize the MPI environment.
 			MPI_Finalize();
@@ -150,7 +163,8 @@ int main() {
 			break;
 		case SERIAL:
 			//------------------START SERIAL MODE-------------------
-			Controller c = Controller("MeshIn11.Txt");
+			Controller c = Controller("mesh-input.txt");
+			//Controller c = Controller("refinement-input.txt");
 			c.solveMainMesh();
 			//------------------END SERIAL MODE-------------------
 			break;

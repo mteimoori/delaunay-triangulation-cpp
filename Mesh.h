@@ -27,21 +27,29 @@ private:
 	void makeTriangle(int cellIndex, int indexPointInCell);
 	Coord* getCoords(Triangle* tri);
 	void removeBigTriangle();
-	void removePoint(Coord c);
+	void elementSize();
+	int getTotalEdges();
 	int proc;
+	std::map<int, double> SF; //index pointIndex, value{pointLabel, val} 
+	std::map<int, bool> grad;
+	int findDesiredTriangle();
+	void edgeSize(int pointTag, double edgeSize);
 public:
 	static int sId;
+	void removeUndesiredTriangles();
 	std::vector<Coord> points;
 	std::vector<Triangle*> cells;
 	std::vector<Curve> boundaryCurves;
 	friend std::ostream& operator<< (std::ostream& stream, const vector<pair<int, int>>& stack);
-	void process();
+	void process(bool isParallel);
+	void refinement(bool isParallel);
 	Coord& getPointByLabel(int label);
-	void writeMeshOutput(int iter);
+	void writeMeshOutput(int iter, char* label, bool isParallel);
 	vector<Coord> getPointsByLabel(vector<int> labels);
 	void writePltInput(string filename = "MeshIn.plt");
 	void removeEdge(int index);
 	void setPoints(vector<Coord> points);
+	void setPoint(int index, Coord point);
 	void addPoints(vector<Coord> points);
 	void addCells(vector<Triangle*> cells);
 	void addBoundaryCurves(vector<Curve> curves);

@@ -50,3 +50,10 @@ void Triangle::setNeighbourLabel(int index, int value) {
 int* Triangle::getPoints() {
 	return this->points;
 }
+void Triangle::swapNeighbours(Triangle* second) {
+	for (int i = 0; i < 3; i++) {
+		int temp = this->getNeighbourLabel(i);
+		this->setNeighbourLabel(i, second->getNeighbourLabel(i));
+		second->setNeighbourLabel(i, temp);
+	}
+}
