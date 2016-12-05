@@ -126,9 +126,10 @@ void connectLeaves(vector<int> leaves, Mesh* devidedMesh) {
 	connectVertices(coords, devidedMesh, leaves);
 }
 void connectPoints(Mesh* devidedMesh, Mesh mainMesh) {
-	Curve newC;
+	
 	for each (Curve c in mainMesh.boundaryCurves)
 	{
+		Curve newC;
 		//connect old edges for current points
 		for each (edge* e in c.getEdges())
 		{
@@ -140,20 +141,32 @@ void connectPoints(Mesh* devidedMesh, Mesh mainMesh) {
 			}
 				
 		}
+		devidedMesh->boundaryCurves.push_back(newC);
 	}
-	devidedMesh->boundaryCurves.push_back(newC);
+	//find leaves for devidedMesh, we need this for matching part 
+	for (int i = 0; i < devidedMesh->boundaryCurves.size(); i++) {
+		devidedMesh->leaves.push_back(devidedMesh->boundaryCurves[i].findLeafVertex());
+	}
+	
 }
 void closeCurve(Mesh* devidedMesh) {
-	vector<int> leaves = devidedMesh->boundaryCurves[0].findLeafVertex();
-	vector<Coord> convexhull = convexHull(devidedMesh->getPointsByLabel(leaves));
+	vector<Coord> convexhull = convexHull(devidedMesh->getPointsByLabel(devidedMesh->getLeaves()));
+	
+	//add new edges of closure to external boundary curve
+	
 	for (int i = 0; i < convexhull.size() - 1; i++) {
 		edge* e = new edge(convexhull[i].ptag, convexhull[i + 1].ptag);
 		devidedMesh->boundaryCurves[0].addEdge(e);
 	}
+	//
+	if (convexhull.size() == 4) devidedMesh->mergedBoundaryEdges.push_back(devidedMesh->boundaryCurves[0].edges.size()-2);
 }
 void matchParts(Mesh* m1, Mesh* m2) {
-	vector<int> leaves = m1->boundaryCurves[0].findLeafVertex();
-	m2->addPoints(m1->getPointsByLabel(leaves));
+	//add first mesh leaves to the points of second one in order to match two parts because second one which was result of point seperation does not contain leaves of first one 
+	for (int i = 0; i < m1->leaves.size(); i++) {
+		m2->addPoints(m1->getPointsByLabel(m1->leaves[i]));
+	}
+	
 }
 void Controller::separation() {
 	//find median
@@ -183,8 +196,8 @@ void Controller::separation() {
 	this->meshes.push_back(m1);
 	this->meshes.push_back(m2);
 	//write seperated shapes
-	m1->writePltInput("separated-1.plt");
-	m2->writePltInput("separated-2.plt");
+	m1->writePltInput("parallel/separated-1.plt");
+	m2->writePltInput("parallel/separated-2.plt");
 }
 
 void Controller::loadData() {
@@ -270,11 +283,12 @@ void separatePoints(vector<Coord> points, Coord median) {
 void Controller::solveMeshes() {
 	for each (Mesh* m in this->meshes)
 	{
-		m->process(1);
+		m->initialTriangulation(1);
+		//m->refinement(1);
 	}
 }
 void Controller::solveMainMesh() {
-	this->mainMesh.process(0);
+	this->mainMesh.initialTriangulation(0);
 	this->mainMesh.refinement(0);
 }
 Mesh* Controller::mergeMeshes() {

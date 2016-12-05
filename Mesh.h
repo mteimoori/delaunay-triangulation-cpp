@@ -38,10 +38,14 @@ public:
 	static int sId;
 	void removeUndesiredTriangles();
 	std::vector<Coord> points;
+	std::vector<vector<int>> leaves; //first internalLeaves, second externalLeaves
+	vector<int> getLeaves();
+	vector<int> getInternalLeaves();
+	vector<int> mergedBoundaryEdges; //consider the case in parallel when we merge internal and external boundary edge into one edge while closing the curve
 	std::vector<Triangle*> cells;
 	std::vector<Curve> boundaryCurves;
 	friend std::ostream& operator<< (std::ostream& stream, const vector<pair<int, int>>& stack);
-	void process(bool isParallel);
+	void initialTriangulation(bool isParallel);
 	void refinement(bool isParallel);
 	Coord& getPointByLabel(int label);
 	void writeMeshOutput(int iter, char* label, bool isParallel);

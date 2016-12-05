@@ -2,8 +2,9 @@
 #include "Controller.h"
 #include "mpi.h"
 enum TAG { NUM_POINTS, COORDS, NUM_CELLS, CELLS, NUM_EDGES, EDGES  };
-enum MODE { PARALLEL, SERIAL };
-#define MODE SERIAL
+enum MODE { PARALLEL, SERIAL, SERIAL_SEPARATION};
+#define MODE SERIAL_SEPARATION
+#define INPUT_FILE "mesh-input.txt"
 void mpiInit() {
 	// Initialize the MPI environment
 	MPI_Init(NULL, NULL);
@@ -125,6 +126,7 @@ int main() {
 	switch (MODE)
 	{
 		case PARALLEL:
+		{
 			//------------------START PARALLEL MODE-------------------
 			mpiInit();
 			// Get the number of processes
@@ -135,10 +137,10 @@ int main() {
 			MPI_Comm_rank(MPI_COMM_WORLD, &procRank);
 			//part 1
 			if (procRank == 0) {
-				Controller c = Controller("MeshIn11.Txt");
+				Controller c = Controller(INPUT_FILE);
 				c.separation();
 				scatterMeshes(c.meshes, procRank);
-				
+
 				//receiveMeshes(procRank);
 				//c.solveMeshes();
 				//c.mergeMeshes();
@@ -147,7 +149,8 @@ int main() {
 			if (procRank != 0) {
 				//solve it on current node
 				Mesh * mesh = receiveMeshes(0, procRank);
-				mesh->process(1);
+				mesh->initialTriangulation(1);
+				mesh->refinement(1);
 				//send it back to master node
 				sendMesh(mesh, procRank, 0);
 			}
@@ -160,14 +163,29 @@ int main() {
 			// Finalize the MPI environment.
 			MPI_Finalize();
 			//------------------END PARALLEL MODE-------------------
+		}
 			break;
 		case SERIAL:
+		{
 			//------------------START SERIAL MODE-------------------
-			Controller c = Controller("mesh-input.txt");
+			Controller c = Controller(INPUT_FILE);
 			//Controller c = Controller("refinement-input.txt");
 			c.solveMainMesh();
 			//------------------END SERIAL MODE-------------------
+			
+		}
 			break;
+		case SERIAL_SEPARATION:
+		{
+			//------------------START SERIAL MODE-------------------
+			Controller cc = Controller(INPUT_FILE);
+			cc.separation();
+			cc.solveMeshes();
+			//------------------END SERIAL MODE-------------------
+			
+		}
+			break;
+
 	}
 	
 

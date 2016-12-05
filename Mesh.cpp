@@ -100,7 +100,7 @@ void deleteAllEdges(vector<edge*>& data, const vector<int>& deleteIndices)
 	}
 	data = tempBuffer;
 }
-void Mesh::process(bool isParallel = false) {
+void Mesh::initialTriangulation(bool isParallel = false) {
 	if(isParallel) cout << "Start solving on proc " << this->proc << endl;
 	else cout << "Start solving " << endl;
 	this->initTriangle();
@@ -143,9 +143,9 @@ void Mesh::process(bool isParallel = false) {
 	}
 	//part 12: remove big triangle
 	//this->removeBigTriangle();
-	if (!isParallel) { //for serial mode
+	//if (!isParallel) { //for serial mode
 		this->removeUndesiredTriangles();
-	}
+	//}
 	
 	this->writeMeshOutput(0,"solved", isParallel);
 	
@@ -163,7 +163,7 @@ void Mesh::refinement(bool isParallel = false) {
 	this->grad.clear();
 	//part 4
 	int totalIter = 0;
-	while (true) {
+	while (totalIter<10000) {
 		totalIter++;
 		cout << totalIter<<endl;
 		//part 5 
@@ -496,6 +496,7 @@ void Mesh::removeUndesiredTriangles() {
 	//part 3
 	//part 4
 	int iterdesiredCells =0;
+	bool oneTime = false;
 	for (int cellIter = 0; cellIter < this->cells.size(); cellIter++)
 	{
 		//part 5
@@ -509,27 +510,45 @@ void Mesh::removeUndesiredTriangles() {
 		//part 8
 		Coord cellCenter((this->getPointByLabel(p1).x + this->getPointByLabel(p2).x + this->getPointByLabel(p3).x)/3.0,
 						 (this->getPointByLabel(p1).y + this->getPointByLabel(p2).y + this->getPointByLabel(p3).y)/3.0);
-
+		//debug
+		/*
+		if (!oneTime) {
+			oneTime = true;
+			this->points.push_back(cellCenter);
+			this->points.push_back(outPoint);
+			this->boundaryCurves[0].addEdge(new edge(this->points.size() - 1, this->points.size() - 2));
+		}
+		*/
 		//part 9
 		int numberOfIntersection = 0;
-		for each (Curve c in this->boundaryCurves)
+		int numberOfIntersectionWithMerged = 0;
+		int numberOfCurve = 0;
+		for each (Curve c in this->boundaryCurves) //foreach edge in boundary curves
 		{
 			for (int i = 0; i < c.getNumEdges(); i++) {
-				//part 10,11
+				//part 10,11: get start point and end point of each edge in boundary curve 
 				Coord
-					startPoint = this->getPointByLabel(c.getEdge(i)->startPointTag),
-					endPoint = this->getPointByLabel(c.getEdge(i)->endPointTag);
-				//part 12
-				if(crossLines(startPoint, endPoint, cellCenter, outPoint)) numberOfIntersection++;
+					BEstartPoint = this->getPointByLabel(c.getEdge(i)->startPointTag),
+					BEendPoint = this->getPointByLabel(c.getEdge(i)->endPointTag);
+				//part 12:: if boundary edge crosses the edge made from center of cell and outer point
+				if (crossLines(BEstartPoint, BEendPoint, cellCenter, outPoint)) {
+					numberOfIntersection++;
+					if ((numberOfCurve == 0) && std::find(this->mergedBoundaryEdges.begin(), this->mergedBoundaryEdges.end(), i) != this->mergedBoundaryEdges.end()) {
+						numberOfIntersectionWithMerged++;
+					}
+				}
 				
+					
 
 			}
+			numberOfCurve++;
 		}
-		//part 13
-		if (numberOfIntersection % 2 == 0) desiredArea = false;
+		//part 13: cell deletion rules
+		if ((numberOfIntersection % 2 == 0)) desiredArea = false;
+		if (numberOfIntersectionWithMerged == 1 && numberOfIntersection == 1) desiredArea = false;
 		//part 14
 		int N = 0;
-		if (desiredArea) { // move desired cells to begining of array
+		if (desiredArea) { // move desired cells to the begining of array and remove the rest
 			//unwantedCells.push_back(cellIter);
 			Triangle* temp = this->cells[cellIter];
 			this->cells[cellIter] = this->cells[iterdesiredCells];
@@ -854,6 +873,17 @@ Coord* Mesh::getCoords(Triangle* tri) {
 	points[1] = this->getPointByLabel(tri->getPointLabel(1));
 	points[2] = this->getPointByLabel(tri->getPointLabel(2));
 	return points;
+}
+vector<int> Mesh::getLeaves() {
+	vector<int> leaves;
+	for (int i = 0; i<this->leaves.size(); i++) {
+		leaves.insert(leaves.end(), this->leaves[i].begin(), this->leaves[i].end());
+	}
+	return leaves;
+}
+vector<int> Mesh::getInternalLeaves() {
+	vector<int> empty;
+	return (this->leaves.size() == 2) ? this->leaves[1]:empty;
 }
 void Mesh::setPoints(vector<Coord> points) {
 	this->points = points;
