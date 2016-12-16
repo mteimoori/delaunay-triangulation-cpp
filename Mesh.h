@@ -62,6 +62,7 @@ public:
 	vector<Mesh> divide();
 	Mesh();
 	Mesh(int numPoints, double** points, int numCells, int** cells, int numEdges, int** edges, int proc);
+	Mesh(int numPoints, double** points, int numCells, int** cells, int numEdges1, int** edges1, int numEdges2, int** edges2, int numMerged, int* merged, int proc);
 };
 
 #endif

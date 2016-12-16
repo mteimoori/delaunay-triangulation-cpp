@@ -1,9 +1,9 @@
 #include "Mesh.h"
 #include "Controller.h"
 #include "mpi.h"
-enum TAG { NUM_POINTS, COORDS, NUM_CELLS, CELLS, NUM_EDGES, EDGES  };
+enum TAG { NUM_POINTS, COORDS, NUM_CELLS, CELLS, NUM_EDGES_1, NUM_EDGES_2, NUM_BOUNDARIES, EDGES_1, EDGES_2, NUM_MERGED_BOUNDARY, MERGED_BOUNDARY};
 enum MODE { PARALLEL, SERIAL, SERIAL_SEPARATION};
-#define MODE SERIAL_SEPARATION
+#define MODE PARALLEL
 #define INPUT_FILE "mesh-input.txt"
 void mpiInit() {
 	// Initialize the MPI environment
@@ -55,16 +55,29 @@ void sendMesh(Mesh* m, int sourceProc,int destinationProc) {
 	MPI_Send(&crows, 1, MPI_INT, destinationProc, NUM_CELLS, MPI_COMM_WORLD);
 	MPI_Send(&cells[0][0], crows*ccols, MPI_INT, destinationProc, CELLS, MPI_COMM_WORLD);
 	//send boundary
-	int numEdges = m->boundaryCurves[0].edges.size();
-	int eCols = 2;
-	int **edges = alloc2dInt(numEdges, eCols);
-	for (int i = 0; i < numEdges; i++) {
-		edges[i][0] = m->boundaryCurves[0].getEdge(i)->startPointTag;
-		edges[i][1] = m->boundaryCurves[0].getEdge(i)->endPointTag;
+	int numBoundary = m->boundaryCurves.size();
+	MPI_Send(&numBoundary, 1, MPI_INT, destinationProc, NUM_BOUNDARIES, MPI_COMM_WORLD);
+	for (int j = 0; j < numBoundary; j++) {
+		int numEdges = m->boundaryCurves[j].edges.size();
+		int eCols = 2;
+		int **edges = alloc2dInt(numEdges, eCols);
+		for (int i = 0; i < numEdges; i++) {
+			edges[i][0] = m->boundaryCurves[j].getEdge(i)->startPointTag;
+			edges[i][1] = m->boundaryCurves[j].getEdge(i)->endPointTag;
+		}
+		cout << "sent boundary from proc  " << sourceProc << "  to " << destinationProc << ": " << endl;
+		MPI_Send(&numEdges, 1, MPI_INT, destinationProc, (j == 0)?NUM_EDGES_1:NUM_EDGES_2, MPI_COMM_WORLD);
+		MPI_Send(&edges[0][0], eCols*numEdges, MPI_INT, destinationProc, (j == 0)?EDGES_1:EDGES_2, MPI_COMM_WORLD);
 	}
-	cout << "sent boundary from proc  " << sourceProc << "  to " << destinationProc << ": " << endl;
-	MPI_Send(&numEdges, 1, MPI_INT, destinationProc, NUM_EDGES, MPI_COMM_WORLD);
-	MPI_Send(&edges[0][0], eCols*numEdges, MPI_INT, destinationProc, EDGES, MPI_COMM_WORLD);
+	//send merged boundaries
+	int numMergedBoundaries = m->mergedBoundaryEdges.size();
+	MPI_Send(&numMergedBoundaries, 1, MPI_INT, destinationProc, NUM_MERGED_BOUNDARY, MPI_COMM_WORLD);
+
+	int* merged = new int[numMergedBoundaries];
+	for (int i = 0; i < numMergedBoundaries; i++) {
+		merged[i] = m->mergedBoundaryEdges[i];
+	}
+	MPI_Send(&merged[0], numMergedBoundaries, MPI_INT, destinationProc, MERGED_BOUNDARY, MPI_COMM_WORLD);
 }
 void scatterMeshes(vector<Mesh*> meshes, int currentProc) {
 	int destinationProc = 0;
@@ -112,14 +125,32 @@ Mesh* receiveMeshes(int source, int currentProc) {
 	cout << "proc " << currentProc << " received CELLS from proc " << source << ": " << endl;
 	//printCells(cells, numCells);
 	//receive boundary
-	int numEdges;
-	MPI_Recv(&(numEdges), 1, MPI_INT, source, NUM_EDGES, MPI_COMM_WORLD, &status);
-	int** edges = alloc2dInt(numEdges, 2);
-	MPI_Recv(&(edges[0][0]), numEdges * 2, MPI_INT, source, EDGES, MPI_COMM_WORLD, &status);
-	cout << "proc " << currentProc << " received EDGES from proc "<< source<<": " << endl;
-	//printEdges(edges, numEdges);
+	int numBoundaries;
+	MPI_Recv(&(numBoundaries), 1, MPI_INT, source, NUM_BOUNDARIES, MPI_COMM_WORLD, &status);
+	
+	int numEdges1;
+	MPI_Recv(&(numEdges1), 1, MPI_INT, source, NUM_EDGES_1, MPI_COMM_WORLD, &status);
+	
+	int numEdges2;
+	MPI_Recv(&(numEdges2), 1, MPI_INT, source, NUM_EDGES_2, MPI_COMM_WORLD, &status);
+
+	int** edges1 = alloc2dInt(numEdges1, 2);
+	MPI_Recv(&(edges1[0][0]), numEdges1 * 2, MPI_INT, source, EDGES_1, MPI_COMM_WORLD, &status);
+	cout << "proc " << currentProc << " received EDGES 1 from proc "<< source<<": " << endl;
+
+	int** edges2 = alloc2dInt(numEdges2, 2);
+	MPI_Recv(&(edges2[0][0]), numEdges2 * 2, MPI_INT, source, EDGES_2, MPI_COMM_WORLD, &status);
+	cout << "proc " << currentProc << " received EDGES 2 from proc " << source << ": " << endl;
+
+	//recieve merged boundary edges
+	int numMergedBoundaries;
+	MPI_Recv(&(numMergedBoundaries), 1, MPI_INT, source, NUM_MERGED_BOUNDARY, MPI_COMM_WORLD, &status);
+	int* merged = new int[numMergedBoundaries];
+	MPI_Recv(&(merged[0]), numMergedBoundaries, MPI_INT, source, MERGED_BOUNDARY, MPI_COMM_WORLD, &status);
+	cout << "proc " << currentProc << " received MERGED EDGES from proc " << source << ": " << endl;
+
 	//make local mesh
-	Mesh * mesh = new Mesh(numPoints, coords, numCells, cells, numEdges, edges, currentProc);
+	Mesh * mesh = new Mesh(numPoints, coords, numCells, cells, numEdges1, edges1,numEdges2, edges2, numMergedBoundaries, merged, currentProc);
 	return mesh;
 }
 int main() {

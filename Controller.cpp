@@ -284,7 +284,7 @@ void Controller::solveMeshes() {
 	for each (Mesh* m in this->meshes)
 	{
 		m->initialTriangulation(1);
-		//m->refinement(1);
+		m->refinement(1);
 	}
 }
 void Controller::solveMainMesh() {

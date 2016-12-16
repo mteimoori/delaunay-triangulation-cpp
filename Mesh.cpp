@@ -903,6 +903,35 @@ void Mesh::addBoundaryCurves(vector<Curve> curves) {
 void Mesh::addCells(vector<Triangle*> cells) {
 	this->cells.insert(this->cells.end(), cells.begin(), cells.end());
 }
+Mesh::Mesh(int numPoints, double** points, int numCells, int** cells, int numEdges1, int** edges1, int numEdges2, int** edges2, int numMerged, int* merged, int proc) {
+	for (int i = 0; i < numPoints; i++) {
+		Coord c(points[i][0], points[i][1], points[i][2], points[i][3]);
+		this->points.push_back(c);
+	}
+	for (int i = 0; i < numCells; i++) {
+		Triangle* tri = new Triangle(cells[i][0], cells[i][1], cells[i][2], cells[i][3], cells[i][4], cells[i][5]);
+		this->cells.push_back(tri);
+	}
+	Curve c1;
+	for (int i = 0; i < numEdges1; i++) {
+		edge* e = new edge(edges1[i][0], edges1[i][1]);
+		c1.addEdge(e);
+	}
+	this->boundaryCurves.push_back(c1);
+
+	Curve c2;
+	for (int i = 0; i < numEdges2; i++) {
+		edge* e = new edge(edges2[i][0], edges2[i][1]);
+		c2.addEdge(e);
+	}
+	this->boundaryCurves.push_back(c2);
+
+	for (int i = 0; i < numMerged; i++) {
+		this->mergedBoundaryEdges.push_back(merged[i]);
+	}
+	
+	this->proc = proc;
+}
 Mesh::Mesh(int numPoints, double** points, int numCells, int** cells, int numEdges, int** edges, int proc) {
 	for (int i = 0; i < numPoints; i++) {
 		Coord c(points[i][0], points[i][1], points[i][2], points[i][3]);
