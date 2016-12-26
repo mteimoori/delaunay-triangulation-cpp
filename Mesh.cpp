@@ -790,8 +790,19 @@ void Mesh::makeTriangle(int cellIndexContainPoint, int pointLabelInCell) {
 	//part 11:
 	this->numRunningCells += 2;
 }
-Coord& Mesh::getPointByLabel(int label) {
-	return this->points.at(label - 1);
+Coord& Mesh::getPointByLabel(int label, bool byplabel) {
+	if (!byplabel) {
+		return this->points.at(label - 1);
+	}
+	else 
+	{
+		for (int i = 0; i < this->points.size(); i++)
+		{
+			if (this->points[i].ptag == label) return this->points[i];
+		}
+	}
+	
+	
 }
 vector<Coord> Mesh::getPointsByLabel(vector<int> labels) {
 	vector<Coord> points;
@@ -931,6 +942,17 @@ Mesh::Mesh(int numPoints, double** points, int numCells, int** cells, int numEdg
 	}
 	
 	this->proc = proc;
+}
+double Mesh::getEdgeSize(int p1, int p2) {
+	Coord c1 = this->getPointByLabel(p1,1);
+	Coord c2 = this->getPointByLabel(p2,1);
+	return sqrt(pow(c1.x - c2.x, 2) + pow(c1.y - c2.y, 2));
+}
+Coord Mesh::getEdgeCenter(int p1, int p2) {
+	Coord c1 = this->getPointByLabel(p1,1);
+	Coord c2 = this->getPointByLabel(p2,1);
+	Coord center = Coord((c1.x + c2.x) / 2.0, (c1.y + c2.y) / 2.0);
+	return center;
 }
 Mesh::Mesh(int numPoints, double** points, int numCells, int** cells, int numEdges, int** edges, int proc) {
 	for (int i = 0; i < numPoints; i++) {

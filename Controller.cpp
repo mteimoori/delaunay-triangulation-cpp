@@ -149,17 +149,37 @@ void connectPoints(Mesh* devidedMesh, Mesh mainMesh) {
 	}
 	
 }
+bool checkSize(vector<edge*>& edgesToAdd, edge* e, Mesh* mesh) {
+	bool changed = false;
+	double edgeSize = mesh->getEdgeSize(e->startPointTag, e->endPointTag);
+	if (edgeSize > 0.5) {
+		changed = true;
+		Coord edgeCenter = mesh->getEdgeCenter(e->startPointTag, e->endPointTag);
+		edgeCenter.ptag = mesh->points.size()+1;
+		mesh->points.push_back(edgeCenter);
+		checkSize(edgesToAdd, new edge(e->startPointTag, edgeCenter.ptag), mesh);
+		checkSize(edgesToAdd, new edge(e->endPointTag, edgeCenter.ptag), mesh);
+	}
+	else {
+		edgesToAdd.push_back(e);
+	}
+	return changed;
+}
 void closeCurve(Mesh* devidedMesh) {
 	vector<Coord> convexhull = convexHull(devidedMesh->getPointsByLabel(devidedMesh->getLeaves()));
 	
 	//add new edges of closure to external boundary curve
-	
+	vector<edge*> edgesToAdd;
 	for (int i = 0; i < convexhull.size() - 1; i++) {
 		edge* e = new edge(convexhull[i].ptag, convexhull[i + 1].ptag);
-		devidedMesh->boundaryCurves[0].addEdge(e);
+		//check edge size
+		bool changed = checkSize(edgesToAdd, e, devidedMesh);
+		//save merged edge
+		if (convexhull.size() == 4 && !changed) devidedMesh->mergedBoundaryEdges.push_back(devidedMesh->boundaryCurves[0].edges.size() + edgesToAdd.size() -1);
 	}
+	devidedMesh->boundaryCurves[0].addEdges(edgesToAdd);
 	//
-	if (convexhull.size() == 4) devidedMesh->mergedBoundaryEdges.push_back(devidedMesh->boundaryCurves[0].edges.size()-2);
+	
 }
 void matchParts(Mesh* m1, Mesh* m2) {
 	//add first mesh leaves to the points of second one in order to match two parts because second one which was result of point seperation does not contain leaves of first one 
@@ -192,6 +212,9 @@ void Controller::separation() {
 	//make closure
 	closeCurve(m1);
 	closeCurve(m2);
+	//add extra points on new edges
+	
+
 	//add sub peoblems
 	this->meshes.push_back(m1);
 	this->meshes.push_back(m2);

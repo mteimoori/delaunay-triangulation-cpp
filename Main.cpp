@@ -3,7 +3,7 @@
 #include "mpi.h"
 enum TAG { NUM_POINTS, COORDS, NUM_CELLS, CELLS, NUM_EDGES_1, NUM_EDGES_2, NUM_BOUNDARIES, EDGES_1, EDGES_2, NUM_MERGED_BOUNDARY, MERGED_BOUNDARY};
 enum MODE { PARALLEL, SERIAL, SERIAL_SEPARATION};
-#define MODE PARALLEL
+#define MODE SERIAL_SEPARATION
 #define INPUT_FILE "mesh-input.txt"
 void mpiInit() {
 	// Initialize the MPI environment
@@ -200,7 +200,6 @@ int main() {
 		{
 			//------------------START SERIAL MODE-------------------
 			Controller c = Controller(INPUT_FILE);
-			//Controller c = Controller("refinement-input.txt");
 			c.solveMainMesh();
 			//------------------END SERIAL MODE-------------------
 			

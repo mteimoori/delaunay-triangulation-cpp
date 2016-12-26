@@ -47,7 +47,7 @@ public:
 	friend std::ostream& operator<< (std::ostream& stream, const vector<pair<int, int>>& stack);
 	void initialTriangulation(bool isParallel);
 	void refinement(bool isParallel);
-	Coord& getPointByLabel(int label);
+	Coord& getPointByLabel(int label, bool byplabel = false);
 	void writeMeshOutput(int iter, char* label, bool isParallel);
 	vector<Coord> getPointsByLabel(vector<int> labels);
 	void writePltInput(string filename = "MeshIn.plt");
@@ -59,6 +59,8 @@ public:
 	void addBoundaryCurves(vector<Curve> curves);
 	void correctEdgeLabels(Mesh* mesh);
 	void correctPoints(Mesh* mesh, int points);
+	double getEdgeSize(int p1, int p2);
+	Coord getEdgeCenter(int p1, int p2);
 	vector<Mesh> divide();
 	Mesh();
 	Mesh(int numPoints, double** points, int numCells, int** cells, int numEdges, int** edges, int proc);

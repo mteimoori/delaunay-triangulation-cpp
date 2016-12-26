@@ -25,6 +25,12 @@ public:
 		this->increaseVertexDegree(e->endPointTag);
 		this->edges.push_back(e);
 	}
+	void addEdges(vector<edge*> es) {
+		for each (edge* e in es)
+		{
+			this->addEdge(e);
+		}
+	}
 	void removeEdge(int index) {
 		this->edges.erase(this->edges.begin() + index);
 	}
